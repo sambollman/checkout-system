@@ -220,7 +220,7 @@ class KioskGUI:
             instruction_label.pack()
             
             self.instructions_label.config(text="Session will timeout after 30 seconds")
-            self.last_scan_time = time.time()
+            self.last_scan_time = datetime.now()
         else:
             # Multiple matches - let them choose
             from tkinter import Toplevel, Button, Label
@@ -289,7 +289,7 @@ class KioskGUI:
                 instruction_label.pack()
                 
                 self.instructions_label.config(text="Session will timeout after 30 seconds")
-                self.last_scan_time = time.time()
+                self.last_scan_time = datetime.now()
             else:
                 self.show_welcome()
 
@@ -351,7 +351,7 @@ class KioskGUI:
             instruction_label.pack()
             
             self.instructions_label.config(text="Session will timeout after 30 seconds")
-            self.last_scan_time = time.time()
+            self.last_scan_time = datetime.now()
         else:
             # Multiple matches - let them choose
             from tkinter import Toplevel, Button, Label
@@ -420,7 +420,7 @@ class KioskGUI:
                 instruction_label.pack()
                 
                 self.instructions_label.config(text="Session will timeout after 30 seconds")
-                self.last_scan_time = time.time()
+                self.last_scan_time = datetime.now()
             else:
                 self.show_welcome()
 
@@ -818,13 +818,13 @@ class KioskGUI:
         if not user:
             # New user - register them
             first_name = self.get_text_input("First time? Enter your first name:")
-            self.last_scan_time = time.time()  # Reset timeout
+            self.last_scan_time = datetime.now()  # Reset timeout
             if not first_name:
                 self.show_error("Registration cancelled")
                 return
             
             last_name = self.get_text_input("Enter your last name:")
-            self.last_scan_time = time.time()  # Reset timeout
+            self.last_scan_time = datetime.now()  # Reset timeout
             if not last_name:
                 self.show_error("Registration cancelled")
                 return
@@ -843,7 +843,7 @@ class KioskGUI:
                 return
         
         self.current_user = user
-        self.last_scan_time = time.time()
+        self.last_scan_time = datetime.now()
         self.show_user_greeting(user)
 
 
@@ -874,7 +874,7 @@ class KioskGUI:
             conn.close()
             
             vehicle_name = self.get_text_input("New Key Fob! What is this for?\n(e.g., 'Squad 91', 'Thermal 2')")
-            self.last_scan_time = time.time() # reset timeout
+            self.last_scan_time = datetime.now() # reset timeout
             if not vehicle_name:
                 self.show_error("Registration cancelled")
                 return
@@ -909,10 +909,10 @@ class KioskGUI:
             
             dialog.wait_window()
             category = result[0] if result[0] else "Vehicle"
-            self.last_scan_time = time.time()  # Reset timeout
+            self.last_scan_time = datetime.now()  # Reset timeout
             
             location = self.get_text_input("Location (press OK for 'Station'):", title="Location") or "Station"
-            self.last_scan_time = time.time()  # Reset timeout
+            self.last_scan_time = datetime.now()  # Reset timeout
         # Register the fob
             conn = get_db()
             try:
@@ -1195,14 +1195,14 @@ class KioskGUI:
                 
                 # Store this fob for later checkout
                 self.pending_fob = fob
-                self.last_scan_time = time.time()
+                self.last_scan_time = datetime.now()
 
 
 
 
     def check_timeout_loop(self):
         """Check for session timeout"""
-        if (self.current_user or self.replace_mode or self.note_mode) and self.last_scan_time:
+        if (self.current_user or self.replace_mode or self.note_mode or self.pending_fob) and self.last_scan_time:
             elapsed = (datetime.now() - self.last_scan_time).total_seconds()
             if elapsed > self.scan_timeout:
                 self.show_error("Session timeout")
