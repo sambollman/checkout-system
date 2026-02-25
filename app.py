@@ -115,6 +115,14 @@ def index():
             key_dict['note'] = dict(note)
         else:
             key_dict['note'] = None
+
+        # Add reservation info
+        if key_dict['id'] in reservation_map:
+            res = reservation_map[key_dict['id']]
+            key_dict['reservation'] = dict(res)
+        else:
+            key_dict['reservation'] = None
+
         formatted_keys.append(key_dict)
     
      # Group by category with natural sorting
@@ -248,7 +256,7 @@ def api_status():
 def api_notify():
     """Receive notification from kiosk that status changed"""
     # Broadcast update to all connected clients
-    socketio.emit('status_update', api_status(), broadcast=True)
+    socketio.emit('status_update', api_status())
     return {'status': 'ok'}
 
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -852,6 +860,9 @@ def reserve_fob(fob_id):
         ''', (fob_id, user_id, reserved_for_name, dt.isoformat(), display_hours_before, reason, created_by))
         conn.commit()
         conn.close()
+        
+        # Broadcast update
+        socketio.emit('status_update', api_status())
         return redirect(url_for('admin_dashboard') + '#reservations')
     
     users = conn.execute('SELECT * FROM users WHERE is_active = 1 ORDER BY last_name, first_name').fetchall()
@@ -869,6 +880,8 @@ def delete_reservation(reservation_id):
     conn.commit()
     conn.close()
     
+    # Broadcast udpate
+    socketio.emit('status_update', api_status())
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/fob/barcode/<int:fob_id>')
