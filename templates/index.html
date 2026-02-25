@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Key Checkout System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">   
+    <style>
+body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        body.dark-mode {
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        body.dark-mode h1,
+        body.dark-mode h2 {
+            color: #ffffff;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        }
+        .table-container {
+            margin-top: 20px;
+            overflow-x: auto;
+            display: none;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            table-layout: fixed;
+        }
+        body.dark-mode table {
+            background: #2d2d2d;
+        }
+        th {
+            background-color: #f5f5f5;
+            padding: 15px;
+            text-align: left;
+            font-weight: bold;
+            border-bottom: 2px solid #ddd;
+        }
+        th:nth-child(1) { width: 20%; }
+        th:nth-child(2) { width: 25%; }
+        th:nth-child(3) { width: 30%; }
+        th:nth-child(4) { width: 25%; }
+        body.dark-mode th {
+            background-color: #1a1a1a;
+            border-bottom: 2px solid #444;
+        }
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        body.dark-mode td {
+            border-bottom: 1px solid #444;
+        }
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+        body.dark-mode tr:hover {
+            background-color: #3a3a3a;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        .status-available {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status-checked-out {
+            background-color: #f44336;
+            color: white;
+        }
+        .view-toggle {
+            position: fixed;
+            top: 20px;
+            right: 200px;
+            z-index: 1000;
+        }
+        .view-toggle-label {
+            margin-right: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        body.dark-mode .view-toggle-label {
+            color: #bbb;
+        }
+        .key-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        body.dark-mode .key-card {
+            background: #2d2d2d;
+            color: #ffffff;
+            box-shadow: 0 2px 4px rgba(255,255,255,0.1);
+        }
+        .key-card.available {
+            border-left: 5px solid #4CAF50;
+        }
+        .key-card.checked-out {
+            border-left: 5px solid #f44336;
+        }
+        .vehicle-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .status {
+            font-size: 0.9em;
+            color: #666;
+        }
+        body.dark-mode .status {
+            color: #bbb;
+        }
+        .status.available {
+            color: #4CAF50;
+        }
+        .status.checked-out {
+            color: #f44336;
+        }
+        .admin-link {
+            float: right;
+            color: #666;
+            text-decoration: none;
+        }
+        body.dark-mode .admin-link {
+            color: #bbb;
+        }
+        .dark-mode-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #4CAF50;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .toggle-label {
+            margin-right: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        body.dark-mode .toggle-label {
+            color: #bbb;
+        }
+        .section-header {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            margin-top: 30px;
+        }
+        .section-header:hover {
+            opacity: 0.8;
+        }
+        .collapse-icon {
+            margin-left: 10px;
+            font-size: 0.7em;
+            transition: transform 0.3s;
+        }
+        .collapse-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+        .collapsible-content {
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+            overflow: hidden;
+        }
+        .collapsible-content.collapsed {
+            max-height: 0 !important;
+            opacity: 0;
+        }
+/* Mobile responsive */
+        @media (max-width: 768px) {
+            body {
+                margin: 10px;
+            }
+            
+            h1 {
+                font-size: 1.5em;
+            }
+            
+            .grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .dark-mode-toggle,
+            .view-toggle {
+                position: static;
+                float: right;
+                margin: 10px 0;
+            }
+            
+            table {
+                font-size: 0.85em;
+            }
+            
+            th, td {
+                padding: 8px 4px;
+            }
+            
+            .admin-link {
+                display: block;
+                float: none;
+                margin: 10px 0;
+            }
+        }
+
+
+    </style>
+</head>
+<body>
+    <div class="dark-mode-toggle">
+        <span class="toggle-label">🌙 Night Mode</span>
+        <label class="toggle-switch">
+            <input type="checkbox" id="darkModeToggle">
+            <span class="slider"></span>
+        </label>
+    </div>
+    <div class="view-toggle">
+        <span class="view-toggle-label">📊 View</span>
+        <label class="toggle-switch">
+            <input type="checkbox" id="viewToggle">
+            <span class="slider"></span>
+        </label>
+    </div>
+
+    <h1>Vehicle & Equipment Checkout System</h1>
+    <a href="/admin/login" class="admin-link">Admin</a>
+
+     {% if vehicles %}
+    <h2 class="section-header" onclick="toggleSection('vehicles')">
+        🚓 Vehicles
+        <span class="collapse-icon" id="vehiclesIcon">▼</span>
+    </h2>
+    <div class="collapsible-content" id="vehiclesContent">    
+    
+    <!-- Card View -->
+    <div class="grid" id="vehiclesCards">
+        {% for key in vehicles %}
+        <div class="key-card {% if key.checkout_id %}checked-out{% else %}available{% endif %}">
+            <div class="vehicle-name">{{ key.vehicle_name }}</div>
+            {% if key.checkout_id %}
+                <div class="status checked-out">
+                    <strong>Checked out to:</strong><br>
+                    {{ key.first_name }} {{ key.last_name }}<br>
+                    <small>Since {{ key.checked_out_at }}</small>
+                </div>
+            {% else %}
+                <div class="status available">
+                    ✓ Available
+                </div>
+            {% endif %}
+
+            {% if key.reservation %}
+                <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    📅 Reserved<br>
+                    <small>
+                        {% if key.reservation.first_name %}
+                            For: {{ key.reservation.first_name }} {{ key.reservation.last_name }}<br>
+                        {% elif key.reservation.reserved_for_name %}
+                            For: {{ key.reservation.reserved_for_name }}<br>
+                        {% endif %}
+                        Time: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.reason %}
+                            {{ key.reservation.reason }}
+                        {% endif %}
+                    </small>
+                </div>
+            {% endif %}
+            {% if key.note %}
+                <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    ⚠️ Note: {{ key.note.note_text }}
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Table View -->
+    <div class="table-container" id="vehiclesTable">
+        <table>
+            <thead>
+                <tr>
+                    <th>Vehicle</th>
+                    <th>Status</th>
+                    <th>Checked Out To</th>
+                    <th>Since</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for key in vehicles %}
+                <tr>
+                    <td><strong>{{ key.vehicle_name }}</strong></td>
+                    <td>
+                        {% if key.checkout_id %}
+                            <span class="status-badge status-checked-out">Checked Out</span>
+                        {% else %}
+                            <span class="status-badge status-available">Available</span>
+                        {% endif %}
+                        {% if key.note %}
+                            <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.75em;">
+                                ⚠️ Note: {{ key.note.note_text }}
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if key.checkout_id %}
+                            {{ key.first_name }} {{ key.last_name }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if key.checkout_id %}
+                            {{ key.checked_out_at }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    </div>
+    {% endif %}
+
+    {% if equipment %}
+    <h2 class="section-header" onclick="toggleSection('equipment')">
+        🔧 Equipment
+        <span class="collapse-icon" id="equipmentIcon">▼</span>
+    </h2>
+    <div class="collapsible-content" id="equipmentContent">        
+    
+    <!-- Card View -->
+    <div class="grid" id="equipmentCards">
+        {% for key in equipment %}
+        <div class="key-card {% if key.checkout_id %}checked-out{% else %}available{% endif %}">
+            <div class="vehicle-name">{{ key.vehicle_name }}</div>
+            {% if key.checkout_id %}
+                <div class="status checked-out">
+                    <strong>Checked out to:</strong><br>
+                    {{ key.first_name }} {{ key.last_name }}<br>
+                    <small>Since {{ key.checked_out_at }}</small>
+                </div>
+            {% else %}
+                <div class="status available">
+                    ✓ Available
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Table View -->
+    <div class="table-container" id="equipmentTable">
+        <table>
+            <thead>
+                <tr>
+                    <th>Equipment</th>
+                    <th>Status</th>
+                    <th>Checked Out To</th>
+                    <th>Since</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for key in equipment %}
+                <tr>
+                    <td><strong>{{ key.vehicle_name }}</strong></td>
+                    <td>
+                        {% if key.checkout_id %}
+                            <span class="status-badge status-checked-out">Checked Out</span>
+                        {% else %}
+                            <span class="status-badge status-available">Available</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if key.checkout_id %}
+                            {{ key.first_name }} {{ key.last_name }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if key.checkout_id %}
+                            {{ key.checked_out_at }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    </div>
+    {% endif %}
+
+    <script>
+        // Dark mode toggle functionality
+        const toggle = document.getElementById('darkModeToggle');
+        const body = document.body;
+        
+        // Check for saved preference
+        if (localStorage.getItem('darkMode') === 'enabled') {
+            body.classList.add('dark-mode');
+            toggle.checked = true;
+        }
+        
+        // Toggle dark mode
+        toggle.addEventListener('change', () => {
+            if (toggle.checked) {
+                body.classList.add('dark-mode');
+                localStorage.setItem('darkMode', 'enabled');
+            } else {
+                body.classList.remove('dark-mode');
+                localStorage.setItem('darkMode', 'disabled');
+            }
+        });
+        // View toggle functionality
+        const viewToggle = document.getElementById('viewToggle');
+        
+        function switchView(isTable) {
+            const vehiclesCards = document.getElementById('vehiclesCards');
+            const vehiclesTable = document.getElementById('vehiclesTable');
+            const equipmentCards = document.getElementById('equipmentCards');
+            const equipmentTable = document.getElementById('equipmentTable');
+            
+            if (isTable) {
+                // Show tables, hide cards
+                if (vehiclesCards) vehiclesCards.style.display = 'none';
+                if (vehiclesTable) vehiclesTable.style.display = 'block';
+                if (equipmentCards) equipmentCards.style.display = 'none';
+                if (equipmentTable) equipmentTable.style.display = 'block';
+                localStorage.setItem('viewPreference', 'table');
+            } else {
+                // Show cards, hide tables
+                if (vehiclesCards) vehiclesCards.style.display = 'grid';
+                if (vehiclesTable) vehiclesTable.style.display = 'none';
+                if (equipmentCards) equipmentCards.style.display = 'grid';
+                if (equipmentTable) equipmentTable.style.display = 'none';
+                localStorage.setItem('viewPreference', 'card');
+            }
+        }
+        
+        // Toggle change event
+        viewToggle.addEventListener('change', () => {
+            switchView(viewToggle.checked);
+        });
+        
+        // Load saved preference
+        const savedView = localStorage.getItem('viewPreference') || 'card';
+        viewToggle.checked = (savedView === 'table');
+        switchView(viewToggle.checked);
+    </script>
+<!-- Socket.IO for real-time updates -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+
+        // Format datetime for display
+        function formatDateTime(isoString) {
+            try {
+                const date = new Date(isoString);
+                const options = { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true };
+                return date.toLocaleString('en-US', options);
+            } catch {
+                return isoString;
+            }
+        }        
+
+
+        // Listen for update events from server
+        socket.on('status_update', function(data) {
+            console.log('Received update from server');
+            updateDisplay(data);
+        });
+        
+        // Fetch and update display
+        function updateDisplay(data) {
+            // Update vehicles
+            updateSection('vehiclesCards', 'vehiclesTable', data.vehicles, 'Vehicle');
+            // Update equipment  
+            updateSection('equipmentCards', 'equipmentTable', data.equipment, 'Equipment');
+        }
+        
+        function updateSection(cardsId, tableId, items, type) {
+            const cardsDiv = document.getElementById(cardsId);
+            const tableDiv = document.getElementById(tableId);
+            const currentView = localStorage.getItem('viewPreference') || 'card';
+            
+            if (currentView === 'card' && cardsDiv) {
+                // Update card view
+                cardsDiv.innerHTML = items.map(key => `
+                    <div class="key-card ${key.checkout_id ? 'checked-out' : 'available'}">
+                        <div class="vehicle-name">${key.vehicle_name}</div>
+                        ${key.checkout_id ? `
+                            <div class="status checked-out">
+                                <strong>Checked out to:</strong><br>
+                                ${key.first_name} ${key.last_name}<br>
+                                <small>Since ${key.checked_out_at}</small>
+                            </div>
+                        ` : `
+                            <div class="status available">
+                                ✓ Available
+                            </div>
+                        `}
+                        ${key.reservation ? `
+                            <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                                📅 Reserved<br>
+                                <small>
+                                    ${key.reservation.first_name ? `For: ${key.reservation.first_name} ${key.reservation.last_name}<br>` : ''}
+                                    ${key.reservation.reserved_for_name ? `For: ${key.reservation.reserved_for_name}<br>` : ''}
+                                    Time: ${formatDateTime(key.reservation.reserved_datetime)}<br>
+                                    ${key.reservation.reason ? key.reservation.reason : ''}
+                                </small>
+                            </div>
+                            </div>
+                        ` : ''}
+                        ${key.note ? `
+                            <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                                ⚠️ Note: ${key.note.note_text}
+                            </div>
+                        ` : ''}  <!-- End of note --> 
+                    </div> <!-- End of card -->
+                `).join('');
+            }
+            
+            if (tableDiv) {
+                // Update table view
+                const tbody = tableDiv.querySelector('tbody');
+                if (tbody) {
+                    tbody.innerHTML = items.map(key => `
+                        <tr>
+                            <td><strong>${key.vehicle_name}</strong></td>
+                            <td>
+                                ${key.checkout_id ? 
+                                    '<span class="status-badge status-checked-out">Checked Out</span>' :
+                                    '<span class="status-badge status-available">Available</span>'
+                                }
+                                ${key.note ? `
+                                    <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.75em;">
+                                        ⚠️ Note: ${key.note.note_text}
+                                    </div>
+                                ` : ''}
+                                ${key.reservation ? `
+                                    <div style="background: #FFA500; color: white; padding: 8px; border-radius: 3px; font-size: 0.85em;">
+                                        📅 Reserved<br>
+                                        <strong>For:</strong> ${key.reservation.first_name ? key.reservation.first_name + ' ' + key.reservation.last_name : key.reservation.reserved_for_name || 'N/A'}<br>
+                                        <strong>Time:</strong> ${formatDateTime(key.reservation.reserved_datetime)}
+                                        ${key.reservation.reason ? '<br><strong>Reason:</strong> ' + key.reservation.reason : ''}
+                                    </div>
+                                ` : ''}
+                            </td>
+                            <td>${key.checkout_id ? `${key.last_name}, ${key.first_name}` : '—'}</td>
+                            <td>${key.checkout_id ? key.checked_out_at : '—'}</td>
+                          </tr>
+                    `).join('');
+                }
+            }
+        }
+        
+        // Fetch initial data and poll for updates every 5 seconds as backup
+        function fetchStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => updateDisplay(data))
+                .catch(error => console.error('Error fetching status:', error));
+        }
+        
+        // Poll every 5 seconds as backup (in case WebSocket disconnects)
+        setInterval(fetchStatus, 5000);
+
+        // Section collapse/expand
+        function toggleSection(section) {
+            const content = document.getElementById(section + 'Content');
+            const icon = document.getElementById(section + 'Icon');
+            
+            content.classList.toggle('collapsed');
+            icon.classList.toggle('collapsed');
+            
+            // Save state
+            const isCollapsed = content.classList.contains('collapsed');
+            localStorage.setItem(section + 'Collapsed', isCollapsed);
+        }
+        
+        // Restore collapsed states on load
+        window.addEventListener('load', () => {
+            ['vehicles', 'equipment'].forEach(section => {
+                const isCollapsed = localStorage.getItem(section + 'Collapsed') === 'true';
+                if (isCollapsed) {
+                    const content = document.getElementById(section + 'Content');
+                    const icon = document.getElementById(section + 'Icon');
+                    if (content && icon) {
+                        content.classList.add('collapsed');
+                        icon.classList.add('collapsed');
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

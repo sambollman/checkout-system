@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        .btn {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 0.9em;
+        }
+        .btn-danger {
+            background-color: #f44336;
+            color: white;
+        }
+        .btn-success {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .btn:hover {
+            opacity: 0.8;
+        }
+        .inactive {
+            color: #999;
+            text-decoration: line-through;
+        }
+        .logout-link {
+            float: right;
+            color: #666;
+            text-decoration: none;
+        }
+        .back-link {
+            color: #666;
+            text-decoration: none;
+            margin-right: 20px;
+        }
+        .section-header {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            margin-top: 30px;
+        }
+        .section-header:hover {
+            opacity: 0.8;
+        }
+        .collapse-icon {
+            margin-left: 10px;
+            font-size: 0.7em;
+            transition: transform 0.3s;
+        }
+        .collapse-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+        .collapsible-content {
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+            overflow: hidden;
+        }
+        .collapsible-content.collapsed {
+            max-height: 0 !important;
+            opacity: 0;
+            overflow: hidden;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        body.dark-mode {
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        
+        h1, h2 {
+            color: #333;
+        }
+        
+        body.dark-mode h1,
+        body.dark-mode h2 {
+            color: #ffffff;
+        }
+        
+        .dark-mode-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: #4CAF50;
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        
+        .toggle-label {
+            margin-right: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        body.dark-mode .toggle-label {
+            color: #bbb;
+        }
+        
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            transition: background-color 0.3s;
+        }
+        
+        body.dark-mode .section {
+            background: #2d2d2d;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            transition: background-color 0.3s;
+        }
+        
+        body.dark-mode table {
+            background: #2d2d2d;
+        }
+        
+        th {
+            background-color: #f5f5f5;
+            transition: background-color 0.3s;
+        }
+        
+        body.dark-mode th {
+            background-color: #1a1a1a;
+            border-bottom: 2px solid #444;
+        }
+        
+        td {
+            border-bottom: 1px solid #ddd;
+        }
+        
+        body.dark-mode td {
+            border-bottom: 1px solid #444;
+        }
+        
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+        
+        body.dark-mode tr:hover {
+            background-color: #3a3a3a;
+        }
+        
+        .back-link, .logout-link {
+            color: #666;
+        }
+        
+        body.dark-mode .back-link,
+        body.dark-mode .logout-link {
+            color: #bbb;
+        }
+        
+        input, select, textarea {
+            background: white;
+            color: #333;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        body.dark-mode input,
+        body.dark-mode select,
+        body.dark-mode textarea {
+            background: #3a3a3a;
+            color: #ffffff;
+            border-color: #555;
+        }
+        .filter-form {
+            background: #f5f5f5;
+            transition: background-color 0.3s;
+        }
+        
+        body.dark-mode .filter-form {
+            background: #2d2d2d;
+        }
+    </style>
+</head>
+<body>
+    <h1>Admin Dashboard</h1>
+    <a href="/" class="back-link">← Back to main page</a>
+    <a href="/admin/logout" class="logout-link">Logout</a>
+    
+    <div class="dark-mode-toggle">
+        <span class="toggle-label">🌙 Night Mode</span>
+        <label class="toggle-switch">
+            <input type="checkbox" id="darkModeToggle">
+            <span class="slider"></span>
+        </label>
+    </div>
+    <div class="section">
+        <h2 id="users" class="section-header" onclick="toggleSection('users')">
+        Users
+        <span class="collapse-icon" id="usersIcon">▼</span>
+    </h2>
+    <div class="collapsible-content" id="usersContent"> 
+        <button onclick="showAddUserForm()" class="btn btn-success" style="margin-bottom: 15px;">+ Add New User</button>
+        
+        <div id="addUserForm" style="display: none; background: #f5f5f5; padding: 20px; margin-bottom: 20px; border-radius: 5px;">
+            <h3>Add New User</h3>
+            <form action="/admin/user/add" method="POST">
+                <label>Card ID: <input type="text" name="card_id" required style="margin: 10px; padding: 5px;"></label><br>
+                <label>First Name: <input type="text" name="first_name" required style="margin: 10px; padding: 5px;"></label><br>
+                <label>Last Name: <input type="text" name="last_name" required style="margin: 10px; padding: 5px;"></label><br>
+                <button type="submit" class="btn btn-success">Add User</button>
+                <button type="button" onclick="hideAddUserForm()" class="btn btn-danger">Cancel</button>
+            </form>
+        </div>
+        <table>
+            <tr>
+                <th>Card ID</th>
+                <th>Name</th>
+                <th>Registered</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+            {% for user in users %}
+            <tr {% if not user.is_active %}class="inactive"{% endif %}>
+                <td>{{ user.card_id }}</td>
+                <td>{{ user.last_name }}, {{ user.first_name }}</td>
+                <td>{{ user.registered_at }}</td>
+                <td>
+                    {% if user.is_active %}
+                        Active
+                    {% else %}
+                        Inactive
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="/admin/user/edit/{{ user.id }}#users" class="btn btn-success">Edit</a>
+                    <a href="/admin/user/replace/{{ user.id }}#users" class="btn" style="background: #FF9800; color: white;">Replace Card</a>
+                    {% if user.is_active %}
+                        <a href="/admin/user/deactivate/{{ user.id }}#users" class="btn btn-danger">Deactivate</a>
+                    {% else %}
+                        <a href="/admin/user/activate/{{ user.id }}#users" class="btn btn-success">Activate</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    </div>
+    <div class="section">
+        <h2 id="fobs" class="section-header" onclick="toggleSection('fobs')">
+            Key Fobs / Vehicles
+            <span class="collapse-icon" id="fobsIcon">▼</span>
+        </h2>
+        <div class="collapsible-content" id="fobsContent">
+        <button onclick="showAddFobForm()" class="btn btn-success" style="margin-bottom: 15px;">+ Add New Key Fob</button>
+        
+        <div id="addFobForm" style="display: none; background: #f5f5f5; padding: 20px; margin-bottom: 20px; border-radius: 5px;">
+            <h3>Add New Key Fob</h3>
+            <form action="/admin/fob/add" method="POST">
+                <label>Fob ID: <input type="text" name="fob_id" required style="margin: 10px; padding: 5px;"></label><br>
+                <label>Name: <input type="text" name="vehicle_name" required style="margin: 10px; padding: 5px;"></label><br>
+                <label>Category: 
+                    <select name="category" style="margin: 10px; padding: 5px;">
+                        <option value="Vehicle">Vehicle</option>
+                        <option value="Equipment">Equipment</option>
+                    </select>
+                </label><br>
+                <label>Location: <input type="text" name="location" value="Station" style="margin: 10px; padding: 5px;"></label><br>
+                <button type="submit" class="btn btn-success">Add Key Fob</button>
+                <button type="button" onclick="hideAddFobForm()" class="btn btn-danger">Cancel</button>
+            </form>
+        </div>
+
+    
+        <table>
+            <tr>
+                <th>Fob ID</th>
+                <th>Name</th>
+		<th>Category</th>
+                <th>Location</th>
+                <th>Registered</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+            {% for fob in fobs %}
+            <tr {% if not fob.is_active %}class="inactive"{% endif %}>
+                <td>{{ fob.fob_id }}</td>
+                <td>{{ fob.vehicle_name }}</td>
+		<td>{{ fob.category }}</td>
+                <td>{{ fob.location }}</td>
+                <td>{{ fob.registered_at }}</td>
+                <td>
+                    {% if fob.is_active %}
+                        Active
+                    {% else %}
+                        Inactive
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="/admin/fob/edit/{{ fob.id }}" class="btn btn-success">Edit</a>
+                    <a href="/admin/fob/replace/{{ fob.id }}" class="btn" style="background: #FF9800; color: white;">Replace Fob</a>
+                    <a href="/admin/fob/reserve/{{ fob.id }}" class="btn" style="background: #2196F3; color: white;">Reserve</a>
+                    <a href="/admin/fob/barcode/{{ fob.id }}" class="btn" style="background: #9C27B0; color: white;">Barcode</a>
+                    {% if fob.note %}
+                        <a href="/admin/fob/note/delete/{{ fob.id }}" class="btn btn-danger" onclick="return confirm('Delete note?')">Clear Note</a>
+                    {% else %}
+                        <a href="/admin/fob/note/add/{{ fob.id }}" class="btn" style="background: #FFC107; color: black;">Add Note</a>
+                    {% endif %}
+                    {% if fob.is_active %}
+                        <a href="/admin/fob/deactivate/{{ fob.id }}#fobs" class="btn btn-danger">Deactivate</a>
+                    {% else %}
+                        <a href="/admin/fob/activate/{{ fob.id }}#fobs" class="btn btn-success">Activate</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    </div>
+<div class="section">    
+<h2 id="history" class="section-header" onclick="toggleSection('history')">
+    Recent Checkout History
+    <span class="collapse-icon" id="historyIcon">▼</span>
+</h2>
+<div class="collapsible-content" id="historyContent">
+    
+    <!-- Filter Form -->
+    <div class="filter-form" style="padding: 20px; margin: 20px 0; border-radius: 5px;"> 
+        <form method="GET" action="/admin#history" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: end;">
+            <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Start Date:</label>
+                <input type="date" name="hist_start_date" value="{{ request.args.get('hist_start_date', '') }}" 
+                       style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            
+            <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 5px;">End Date:</label>
+                <input type="date" name="hist_end_date" value="{{ request.args.get('hist_end_date', '') }}" 
+                       style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            
+            <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Vehicle/Equipment:</label>
+                <select name="hist_fob_id" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="">All Items</option>
+                    {% for fob in fobs %}
+                    <option value="{{ fob.id }}" {% if request.args.get('hist_fob_id') == fob.id|string %}selected{% endif %}>
+                        {{ fob.vehicle_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 5px;">User:</label>
+                <select name="hist_user_id" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="">All Users</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}" {% if request.args.get('hist_user_id') == user.id|string %}selected{% endif %}>
+                        {{ user.last_name }}, {{ user.first_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Limit:</label>
+                <select name="hist_limit" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="50" {% if request.args.get('hist_limit', '50') == '50' %}selected{% endif %}>50</option>
+                    <option value="100" {% if request.args.get('hist_limit') == '100' %}selected{% endif %}>100</option>
+                    <option value="250" {% if request.args.get('hist_limit') == '250' %}selected{% endif %}>250</option>
+                    <option value="500" {% if request.args.get('hist_limit') == '500' %}selected{% endif %}>500</option>
+                    <option value="all" {% if request.args.get('hist_limit') == 'all' %}selected{% endif %}>All</option>
+                </select>
+            </div>
+            
+            <div>
+                <button type="button" onclick="filterToday()" class="btn" style="background: #2196F3; color: white; margin-left: 5px;">📅 Today</button>
+                <button type="submit" class="btn btn-success">Filter</button>
+                <a href="/admin#history" class="btn" style="background: #666; color: white; text-decoration: none; margin-left: 5px;">Clear</a>
+            </div>
+        </form>
+    </div>
+    
+    <a href="/admin/export/history{% if request.args %}?{{ request.query_string.decode() }}{% endif %}" 
+       class="btn btn-success" style="margin-bottom: 15px;">📥 Export Filtered Results (CSV)</a>
+    
+    <div style="overflow-x: auto;">
+
+        <table>
+            <tr>
+                <th>User</th>
+                <th>Vehicle</th>
+                <th>Checked Out</th>
+                <th>Checked In</th>
+                <th>Kiosk</th>
+            </tr>
+            {% for entry in history %}
+            <tr>
+                <td>{{ entry.user_name }}</td>
+                <td>{{ entry.vehicle_name }}</td>
+                <td>{{ entry.checked_out_at }}</td>
+                <td>
+                    {% if entry.checked_in_at %}
+                        {{ entry.checked_in_at }}
+                    {% else %}
+                        <strong>Still out</strong>
+                    {% endif %}
+                </td>
+                <td>{{ entry.kiosk_id }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    </div>
+    </div>
+    <div class="section">
+    <h2 id="reservations" class="section-header" onclick="toggleSection('reservations')">
+        Active Reservations
+        <span class="collapse-icon" id="reservationsIcon">▼</span>
+    </h2>
+    <div class="collapsible-content" id="reservationsContent">
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Vehicle/Equipment</th>
+                    <th>Reserved For</th>
+                    <th>Reserved Time</th>
+                    <th>Display Starting</th>
+                    <th>Reason</th>
+                    <th>Created By</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for res in reservations %}
+                <tr>
+                    <td><strong>{{ res.vehicle_name }}</strong></td>
+                    <td>
+                        {% if res.first_name %}
+                            {{ res.last_name }}, {{ res.first_name }}
+                        {% elif res.reserved_for_name %}
+                            {{ res.reserved_for_name }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td>{{ res.reserved_datetime }}</td>
+                    <td>{{ res.display_hours_before }} hours before</td>
+                    <td>{{ res.reason or '—' }}</td>
+                    <td>{{ res.created_by }}</td>
+                    <td>
+                        <a href="/admin/reservation/delete/{{ res.id }}#reservations" class="btn btn-danger" 
+                           onclick="return confirm('Delete this reservation?')">Delete</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    </div>
+    </div>
+<div class="section">
+<h2 id="past-reservations" class="section-header" onclick="toggleSection('pastReservations')">
+        Past Reservations
+        <span class="collapse-icon" id="pastReservationsIcon">▼</span>
+    </h2>
+    <div class="collapsible-content" id="pastReservationsContent">
+    <!-- Filter Form -->
+    <div class="filter-form" style="padding: 20px; margin: 20px 0; border-radius: 5px;">
+        <form method="GET" action="/admin#past-reservations" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: end;">
+            <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Start Date:</label>
+                <input type="date" name="past_start_date" value="{{ request.args.get('past_start_date', '') }}" 
+                       style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            
+            <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 5px;">End Date:</label>
+                <input type="date" name="past_end_date" value="{{ request.args.get('past_end_date', '') }}" 
+                       style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            
+            <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Vehicle/Equipment:</label>
+                <select name="past_fob_id" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="">All Items</option>
+                    {% for fob in fobs %}
+                    <option value="{{ fob.id }}" {% if request.args.get('past_fob_id') == fob.id|string %}selected{% endif %}>
+                        {{ fob.vehicle_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Reserved For:</label>
+                <select name="past_user_id" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="">All Users</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}" {% if request.args.get('past_user_id') == user.id|string %}selected{% endif %}>
+                        {{ user.last_name }}, {{ user.first_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Limit:</label>
+                <select name="past_limit" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="25" {% if request.args.get('past_limit', '25') == '25' %}selected{% endif %}>25</option>
+                    <option value="50" {% if request.args.get('past_limit') == '50' %}selected{% endif %}>50</option>
+                    <option value="100" {% if request.args.get('past_limit') == '100' %}selected{% endif %}>100</option>
+                    <option value="all" {% if request.args.get('past_limit') == 'all' %}selected{% endif %}>All</option>
+                </select>
+            </div>
+            
+            <div>
+                <button type="submit" class="btn btn-success">Filter</button>
+                <a href="/admin#past-reservations" class="btn" style="background: #666; color: white; text-decoration: none; margin-left: 5px;">Clear</a>
+            </div>
+        </form>
+    </div>
+
+
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Vehicle/Equipment</th>
+                    <th>Reserved For</th>
+                    <th>Reserved Time</th>
+                    <th>Display Hours</th>
+                    <th>Reason</th>
+                    <th>Created By</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for res in past_reservations %}
+                <tr style="opacity: 1;">
+                    <td><strong>{{ res.vehicle_name }}</strong></td>
+                    <td>
+                        {% if res.first_name %}
+                            {{ res.last_name }}, {{ res.first_name }}
+                        {% elif res.reserved_for_name %}
+                            {{ res.reserved_for_name }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td>{{ res.reserved_datetime }}</td>
+                    <td>{{ res.display_hours_before }} hours before</td>
+                    <td>{{ res.reason or '—' }}</td>
+                    <td>{{ res.created_by }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    </div>
+</body>
+</html>
+
+    <script>
+        function showAddUserForm() {
+            document.getElementById('addUserForm').style.display = 'block';
+        }
+        function hideAddUserForm() {
+            document.getElementById('addUserForm').style.display = 'none';
+        }
+        function showAddFobForm() {
+            document.getElementById('addFobForm').style.display = 'block';
+        }
+        function hideAddFobForm() {
+            document.getElementById('addFobForm').style.display = 'none';
+        }
+        function showExportForm() {
+            document.getElementById('exportForm').style.display = 'block';
+        }
+        function hideExportForm() {
+            document.getElementById('exportForm').style.display = 'none';
+        }
+    </script>
+
+    <script>
+        function showExportForm() {
+            document.getElementById('exportForm').style.display = 'block';
+        }
+        
+        function hideAddUserForm() {
+            document.getElementById('addUserForm').style.display = 'none';
+        }
+        
+        function hideAddFobForm() {
+            document.getElementById('addFobForm').style.display = 'none';
+        }
+        
+        function filterToday() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const today = `${year}-${month}-${day}`;
+            console.log("Today calculated as:", today);
+            
+            const url = new URL(window.location.href);
+            url.searchParams.set('hist_start_date', today);
+            url.searchParams.set('hist_end_date', today);
+            url.hash = 'history';
+            window.location.href = url.toString();
+        }
+        // Section collapse/expand
+        function toggleSection(section) {
+            const content = document.getElementById(section + 'Content');
+            const icon = document.getElementById(section + 'Icon');
+            
+            if (content && icon) {
+                content.classList.toggle('collapsed');
+                icon.classList.toggle('collapsed');
+                
+                // Save state
+                const isCollapsed = content.classList.contains('collapsed');
+                localStorage.setItem(section + 'Collapsed', isCollapsed);
+            }
+        }
+        
+        // Restore collapsed states on load
+        window.addEventListener('load', () => {
+            ['users', 'fobs', 'history', 'reservations', 'pastReservations'].forEach(section => {
+                const isCollapsed = localStorage.getItem(section + 'Collapsed') === 'true';
+                if (isCollapsed) {
+                    const content = document.getElementById(section + 'Content');
+                    const icon = document.getElementById(section + 'Icon');
+                    if (content && icon) {
+                        content.classList.add('collapsed');
+                        icon.classList.add('collapsed');
+                    }
+                }
+            });
+        });
+        // Dark mode toggle
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const body = document.body;
+        
+        // Check for saved preference
+        if (localStorage.getItem('adminDarkMode') === 'enabled') {
+            body.classList.add('dark-mode');
+            darkModeToggle.checked = true;
+        }
+        
+        // Toggle dark mode
+        darkModeToggle.addEventListener('change', () => {
+            if (darkModeToggle.checked) {
+                body.classList.add('dark-mode');
+                localStorage.setItem('adminDarkMode', 'enabled');
+            } else {
+                body.classList.remove('dark-mode');
+                localStorage.setItem('adminDarkMode', 'disabled');
+            }
+        });
+    </script>
+
+</body>
+</html>

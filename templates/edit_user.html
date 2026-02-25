@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit User</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .form-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+        }
+        label {
+            display: block;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .save-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .cancel-btn {
+            background-color: #666;
+            color: white;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>Edit User</h1>
+        <form method="POST">
+            <label>Card ID:</label>
+            <input type="text" name="card_id" value="{{ user.card_id }}" readonly style="background: #f5f5f5;">
+            
+            <label>First Name:</label>
+            <input type="text" name="first_name" value="{{ user.first_name }}" required>
+            
+            <label>Last Name:</label>
+            <input type="text" name="last_name" value="{{ user.last_name }}" required>
+            
+            <button type="submit" class="save-btn">Save Changes</button>
+            <a href="/admin#users"><button type="button" class="cancel-btn">Cancel</button></a>
+        </form>
+    </div>
+</body>
+</html>

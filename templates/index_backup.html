@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Key Checkout System</title>
+    <meta http-equiv="refresh" content="30">
+    <style>
+body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        body.dark-mode {
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        body.dark-mode h1,
+        body.dark-mode h2 {
+            color: #ffffff;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .key-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        body.dark-mode .key-card {
+            background: #2d2d2d;
+            color: #ffffff;
+            box-shadow: 0 2px 4px rgba(255,255,255,0.1);
+        }
+        .key-card.available {
+            border-left: 5px solid #4CAF50;
+        }
+        .key-card.checked-out {
+            border-left: 5px solid #f44336;
+        }
+        .vehicle-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .status {
+            font-size: 0.9em;
+            color: #666;
+        }
+        body.dark-mode .status {
+            color: #bbb;
+        }
+        .status.available {
+            color: #4CAF50;
+        }
+        .status.checked-out {
+            color: #f44336;
+        }
+        .admin-link {
+            float: right;
+            color: #666;
+            text-decoration: none;
+        }
+        body.dark-mode .admin-link {
+            color: #bbb;
+        }
+        .dark-mode-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #4CAF50;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .toggle-label {
+            margin-right: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        body.dark-mode .toggle-label {
+            color: #bbb;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="dark-mode-toggle">
+        <span class="toggle-label">🌙 Night Mode</span>
+        <label class="toggle-switch">
+            <input type="checkbox" id="darkModeToggle">
+            <span class="slider"></span>
+        </label>
+    </div>
+
+    <h1>Vehicle & Equipment Checkout System</h1>
+    <a href="/admin/login" class="admin-link">Admin</a>
+    
+    {% if vehicles %}
+    <h2 style="margin-top: 30px;">🚓 Vehicles</h2>
+    <div class="grid">
+        {% for key in vehicles %}
+        <div class="key-card {% if key.checkout_id %}checked-out{% else %}available{% endif %}">
+            <div class="vehicle-name">{{ key.vehicle_name }}</div>
+            {% if key.checkout_id %}
+                <div class="status checked-out">
+                    <strong>Checked out to:</strong><br>
+                    {{ key.first_name }} {{ key.last_name }}<br>
+                    <small>Since {{ key.checked_out_at }}</small>
+                </div>
+            {% else %}
+                <div class="status available">
+                    ✓ Available
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    {% if equipment %}
+    <h2 style="margin-top: 40px;">🔧 Equipment</h2>
+    <div class="grid">
+        {% for key in equipment %}
+        <div class="key-card {% if key.checkout_id %}checked-out{% else %}available{% endif %}">
+            <div class="vehicle-name">{{ key.vehicle_name }}</div>
+            {% if key.checkout_id %}
+                <div class="status checked-out">
+                    <strong>Checked out to:</strong><br>
+                    {{ key.first_name }} {{ key.last_name }}<br>
+                    <small>Since {{ key.checked_out_at }}</small>
+                </div>
+            {% else %}
+                <div class="status available">
+                    ✓ Available
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <p style="margin-top: 30px; color: #999; font-size: 0.8em;">
+        Page refreshes every 30 seconds
+    </p>
+
+    <script>
+        // Dark mode toggle functionality
+        const toggle = document.getElementById('darkModeToggle');
+        const body = document.body;
+        
+        // Check for saved preference
+        if (localStorage.getItem('darkMode') === 'enabled') {
+            body.classList.add('dark-mode');
+            toggle.checked = true;
+        }
+        
+        // Toggle dark mode
+        toggle.addEventListener('change', () => {
+            if (toggle.checked) {
+                body.classList.add('dark-mode');
+                localStorage.setItem('darkMode', 'enabled');
+            } else {
+                body.classList.remove('dark-mode');
+                localStorage.setItem('darkMode', 'disabled');
+            }
+        });
+    </script>
+</body>
+</html>

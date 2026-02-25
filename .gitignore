@@ -1,0 +1,12 @@
+# Don't upload database or logs
+*.db
+*.log
+flask.log
+
+# Don't upload Python cache
+__pycache__/
+*.pyc
+venv/
+
+# Don't upload system files
+.DS_Store
