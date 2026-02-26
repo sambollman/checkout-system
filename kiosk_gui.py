@@ -825,8 +825,18 @@ class KioskGUI:
                 conn.close()
                 self.notify_server()
             except Exception as e:
-                # Offline - queue transaction
-                conn.close()
+                # Server offline - write locally AND queue for sync
+                try:
+                    conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
+                                (user['id'], self.pending_fob['id'], self.kiosk_id, datetime.now(pytz.timezone('America/Chicago'))))
+                    conn.commit()
+                    print(f"✓ Written to local DB successfully")
+                except Exception as db_error:
+                    print(f"✗ Failed to write to local DB: {db_error}")
+                finally:
+                    conn.close()
+                
+                # Also queue for server sync
                 user_info = {
                     'card_id': user['card_id'],
                     'first_name': user['first_name'],
@@ -840,6 +850,7 @@ class KioskGUI:
                 self.go_offline()
                 self.update_offline_count()
                 print(f"⚠️ Queued checkout offline ({count} pending): {e}")
+
             
             self.show_checkout_success(self.pending_fob['vehicle_name'], self.pending_fob['category'])
             self.pending_fob = None
@@ -972,8 +983,13 @@ class KioskGUI:
                         conn.close()
                         self.notify_server()
                     except Exception as e:
-                        # Offline - queue transaction
+                        # Server offline - write locally AND queue for sync
+                        conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
+                            (self.current_user['id'], fob['id'], self.kiosk_id, datetime.now(pytz.timezone('America/Chicago'))))
+                        conn.commit()
                         conn.close()
+                        
+                        # Also queue for server sync
                         user_info = {
                             'card_id': self.current_user['card_id'],
                             'first_name': self.current_user['first_name'],
@@ -1057,14 +1073,18 @@ class KioskGUI:
                     conn.close()
                     self.notify_server()
                 except Exception as e:
-                    # Offline - queue handoff as checkin + checkout
+                    # Server offline - write locally AND queue for sync
+                    conn.execute('UPDATE checkouts SET checked_in_at = ? WHERE id = ?',
+                                (datetime.now(pytz.timezone('America/Chicago')), checkout['id']))
+                    conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
+                            (self.current_user['id'], fob['id'], self.kiosk_id, datetime.now(pytz.timezone('America/Chicago'))))
+                    conn.commit()
                     conn.close()
                     
-                    # Queue checkin for previous user
+                    # Also queue for server sync
                     fob_info = {'fob_id': fob['fob_id'], 'vehicle_name': fob['vehicle_name']}
                     queue_transaction('checkin', None, fob_info, self.kiosk_id)
                     
-                    # Queue checkout for new user
                     user_info = {
                         'card_id': self.current_user['card_id'],
                         'first_name': self.current_user['first_name'],
@@ -1114,14 +1134,21 @@ class KioskGUI:
             else:
                 # Same user returning it, or no user scanned
                 try:
+                    if not self.check_server_available():
+                        raise Exception("Server offline")
                     conn.execute('UPDATE checkouts SET checked_in_at = ? WHERE id = ?',
                                 (datetime.now(pytz.timezone('America/Chicago')), checkout['id']))
                     conn.commit()
                     conn.close()
                     self.notify_server()
                 except Exception as e:
-                    # Offline - queue checkin
+                    # Server offline - write locally AND queue for sync
+                    conn.execute('UPDATE checkouts SET checked_in_at = ? WHERE id = ?',
+                                (datetime.now(pytz.timezone('America/Chicago')), checkout['id']))
+                    conn.commit()
                     conn.close()
+                    
+                    # Also queue for server sync
                     fob_info = {
                         'fob_id': fob['fob_id'],
                         'vehicle_name': fob['vehicle_name']
@@ -1249,9 +1276,20 @@ class KioskGUI:
                     conn.commit()
                     conn.close()
                     self.notify_server()
+                
                 except Exception as e:
-                    # Offline - queue transaction
-                    conn.close()
+                    # Server offline - write locally AND queue for sync
+                    try:
+                        conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
+                                (self.current_user['id'], fob['id'], self.kiosk_id, datetime.now(pytz.timezone('America/Chicago'))))
+                        conn.commit()
+                        print(f"✓ Written to local DB successfully")
+                    except Exception as db_error:
+                        print(f"✗ Failed to write to local DB: {db_error}")
+                    finally:
+                        conn.close()
+                    
+                    # Also queue for server sync
                     user_info = {
                         'card_id': self.current_user['card_id'],
                         'first_name': self.current_user['first_name'],
