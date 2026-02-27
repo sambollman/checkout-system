@@ -87,14 +87,25 @@ docker run -d \
 4. Kiosk endpoints bypass Okta and use HTTP Basic Auth
 
 **Authorized Admins:**
-Edit `ADMIN_USERS` list in `app.py`:
-```python
-ADMIN_USERS = [
-    'sam.bollman',
-    'john.smith',
-    # Add usernames here
-]
+
+Admins are managed via the web UI - no code changes needed!
+
+1. **Initial Setup:** Add first admin to database:
+```bash
+   sqlite3 /path/to/key_checkout.db "INSERT INTO admin_users (username, password_hash) VALUES ('your.username', '');"
 ```
+
+2. **Adding More Admins:** 
+   - Log in to admin panel
+   - Click "Manage Admins"
+   - Add usernames (they'll authenticate via Okta)
+
+3. **Removing Admins:**
+   - Go to "Manage Admins"
+   - Click "Remove" next to their name
+
+**Note:** In production with Okta, the `password_hash` column is unused. Okta handles authentication, the app only checks if the username exists in the `admin_users` table.
+
 
 ⚠️ **Security:** Only enable `USERNAME_HEADER_NAME` when application is behind Okta proxy. If accessible directly, anyone can forge the header.
 
@@ -254,6 +265,11 @@ checkout-system/
 - `GET /api/status` - Get current equipment status
 - `POST /api/offline_sync/checkout` - Sync offline checkout
 - `POST /api/offline_sync/checkin` - Sync offline checkin
+
+### Admin User Management
+- `GET /admin/admins` - Manage admin users
+- `POST /admin/admins/add` - Add new admin
+- `POST /admin/admins/delete/<id>` - Remove admin
 
 ## Database Schema
 
