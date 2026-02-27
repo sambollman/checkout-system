@@ -300,10 +300,23 @@ def admin_logout():
 
 @app.route('/admin')
 def admin_dashboard():
-    """Admin dashboard"""
-    print("DEBUG: ADMIN DASHBOARD CALLED")
-    if not session.get('admin'):
-        return redirect(url_for('admin_login'))
+    """Admin dashboard - Okta or password protected"""
+
+    # Check if running behind Okta proxy
+    username = get_authenticated_user()
+    
+    if username:
+        # Okta proxy authentication
+        if not is_admin_user(username):
+            return "Access denied. You are not authorized to access the admin panel.", 403
+        
+        # Store in session
+        session['admin'] = True
+        session['username'] = username
+    else:
+        # Local development - check session from password login
+        if not session.get('admin'):
+            return redirect('/admin/login')
     
     conn = get_db()
     
