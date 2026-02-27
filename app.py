@@ -25,11 +25,7 @@ def require_kiosk_auth(f):
 USERNAME_HEADER_NAME = os.getenv('USERNAME_HEADER_NAME')  # e.g., 'x-auth-proxy-username'
 
 # Admin users authorized to access admin panel
-ADMIN_USERS = [
-    'sam.bollman',
-    'john.smith',
-    # Add more admin emails/usernames here
-]
+# I took this out, going to use admin database
 
 def get_authenticated_user():
     """Get authenticated user from proxy header (if configured)"""
@@ -39,7 +35,10 @@ def get_authenticated_user():
 
 def is_admin_user(username):
     """Check if user is authorized for admin access"""
-    return username in ADMIN_USERS
+    conn = get_db()
+    admin = conn.execute('SELECT * FROM admin_users WHERE username = ?', (username,)).fechone()
+    conn.close()
+    return admin is not None
 
 
 app = Flask(__name__)
@@ -1030,6 +1029,51 @@ def compact_db_weekly():
 # Start background compacting thread
 compact_thread = Thread(target=compact_db_weekly, daemon=True)
 compact_thread.start()
+
+@app.route('/admin/admins')
+def manage_admin_users():
+    """Manage admin users"""
+    if not session.get('admin'):
+        return redirect('/admin/login')
+    
+    conn = get_db()
+    admins = conn.execute('SELECT * FROM admin_users ORDER BY username').fetchall()
+    conn.close()
+    
+    return render_template('manage_admins.html', admins=admins)
+
+@app.route('/admin/admins/add', methods=['POST'])
+def add_admin_user():
+    """Add new admin user"""
+    if not session.get('admin'):
+        return redirect('/admin/login')
+    
+    username = request.form.get('username')
+    
+    if username:
+        conn = get_db()
+        try:
+            conn.execute('INSERT INTO admin_users (username, password_hash) VALUES (?, ?)', (username, ''))
+            conn.commit()
+        except:
+            pass  # Already exists
+        conn.close()
+    
+    return redirect('/admin/admins')
+
+@app.route('/admin/admins/delete/<int:admin_id>', methods=['POST'])
+def delete_admin_user(admin_id):
+    """Delete admin user"""
+    if not session.get('admin'):
+        return redirect('/admin/login')
+    
+    conn = get_db()
+    conn.execute('DELETE FROM admin_users WHERE id = ?', (admin_id,))
+    conn.commit()
+    conn.close()
+    
+    return redirect('/admin/admins')
+
 
 @app.route('/api/offline_sync/checkout', methods=['POST'])
 @require_kiosk_auth
