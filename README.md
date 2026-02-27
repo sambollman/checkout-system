@@ -56,6 +56,58 @@ Access dashboard at: http://localhost:5000
 Admin panel at: http://localhost:5000/admin (password: `admin123`)
 
 ## Production Deployment
+### Authentication
+
+The application supports two authentication modes:
+
+#### Development Mode (Default)
+- Admin panel uses simple password authentication
+- Default password: `admin123` (change this!)
+- Kiosk endpoints use HTTP Basic Auth with username/password
+
+#### Production Mode (Okta Proxy)
+Set the `USERNAME_HEADER_NAME` environment variable to enable Okta authentication:
+```bash
+# Docker run example
+docker run -d \
+  --name checkout-app \
+  -p 5000:5000 \
+  -v /path/to/data:/data \
+  -e DB_PATH=/data/key_checkout.db \
+  -e USERNAME_HEADER_NAME=x-auth-proxy-username \
+  -e KIOSK_USER=kiosk \
+  -e KIOSK_PASS=secure-password \
+  checkout-system
+```
+
+**How it works:**
+1. IT's Okta proxy authenticates users
+2. Proxy passes username in HTTP header (e.g., `x-auth-proxy-username: sam.bollman`)
+3. Application reads header and checks against authorized admin list
+4. Kiosk endpoints bypass Okta and use HTTP Basic Auth
+
+**Authorized Admins:**
+Edit `ADMIN_USERS` list in `app.py`:
+```python
+ADMIN_USERS = [
+    'sam.bollman',
+    'john.smith',
+    # Add usernames here
+]
+```
+
+⚠️ **Security:** Only enable `USERNAME_HEADER_NAME` when application is behind Okta proxy. If accessible directly, anyone can forge the header.
+
+### Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DB_PATH` | Yes | `key_checkout.db` | Path to SQLite database file |
+| `KIOSK_USER` | Yes | `kiosk` | Username for kiosk Basic Auth |
+| `KIOSK_PASS` | Yes | `change-this-in-production` | Password for kiosk Basic Auth |
+| `USERNAME_HEADER_NAME` | No | None | Header name for Okta username (e.g., `x-auth-proxy-username`) |
+| `SERVER_URL` | Kiosk only | `http://localhost:5000` | Server URL for kiosk client |
+
 
 ### Environment Variables
 
