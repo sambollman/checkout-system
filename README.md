@@ -52,7 +52,7 @@ python app.py
 python kiosk_gui.py
 ```
 
-Access dashboard at: http://localhost:5000  
+Access dashboard at: http://localhost:5000
 Admin panel at: http://localhost:5000/admin (password: `admin123`)
 
 ## Production Deployment
@@ -188,7 +188,6 @@ checkout-system/
 
 ### Public
 - `GET /` - Main dashboard
-- `GET /api/status` - JSON status of all equipment
 
 ### Admin (authenticated)
 - `GET /admin` - Admin dashboard
@@ -200,6 +199,9 @@ checkout-system/
 
 ### Kiosk (Basic Auth)
 - `POST /api/notify` - Trigger dashboard refresh
+- `GET /api/status` - Get current equipment status
+- `POST /api/offline_sync/checkout` - Sync offline checkout
+- `POST /api/offline_sync/checkin` - Sync offline checkin
 
 ## Database Schema
 
