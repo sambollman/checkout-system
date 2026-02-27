@@ -5,6 +5,23 @@ from datetime import datetime
 import pytz
 import hashlib
 import os
+from functools import wraps
+
+# Kiosk authentication (HTTP Basic Auth)
+KIOSK_USER = os.getenv('KIOSK_USER', 'kiosk')
+KIOSK_PASS = os.getenv('KIOSK_PASS', 'change-this-in-production')
+
+def require_kiosk_auth(f):
+    """Decorator to require HTTP Basic Auth for kiosk endpoints"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth = request.authorization
+        if not auth or auth.username != KIOSK_USER or auth.password != KIOSK_PASS:
+            return {'error': 'Unauthorized'}, 401
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 
 app = Flask(__name__)
 app.secret_key = 'change-this-to-something-secret'  # Change this!
@@ -141,6 +158,7 @@ def index():
     return render_template('index.html', vehicles=vehicles, equipment=equipment)
 
 @app.route('/api/status')
+@require_kiosk_auth
 def api_status():
     """API endpoint to get current key status as JSON"""
     conn = get_db()
@@ -253,12 +271,14 @@ def api_status():
     return {'vehicles': vehicles, 'equipment': equipment}
 
 @app.route('/api/notify', methods=['POST'])
+@require_kiosk_auth
 def api_notify():
     """Receive notification from kiosk that status changed"""
     # Broadcast update to all connected clients
     socketio.emit('status_update', api_status())
     return {'status': 'ok'}
 
+# DEVELOPMENT ONLY - REMOVE in production (OKTA handles login)
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     """Admin login page"""
@@ -980,6 +1000,7 @@ compact_thread = Thread(target=compact_db_weekly, daemon=True)
 compact_thread.start()
 
 @app.route('/api/offline_sync/checkout', methods=['POST'])
+@require_kiosk_auth
 def offline_sync_checkout():
     """Accept offline checkout from kiosk"""
     data = request.json
@@ -1015,6 +1036,7 @@ def offline_sync_checkout():
     return {'success': True}
 
 @app.route('/api/offline_sync/checkin', methods=['POST'])
+@require_kiosk_auth
 def offline_sync_checkin():
     """Accept offline checkin from kiosk"""
     data = request.json

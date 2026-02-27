@@ -13,8 +13,12 @@ import os
 
 # Server configuration
 SERVER_URL = os.getenv('SERVER_URL', 'http://localhost:5000')
-KIOSK_AUTH_USER = os.getenv('KIOSK_USER', None)
-KIOSK_AUTH_PASS = os.getenv('KIOSK_PASS', None)
+KIOSK_USER = os.getenv('KIOSK_USER', 'kiosk')
+KIOSK_PASS = os.getenv('KIOSK_PASS', 'change-this-in-production')
+
+print(f"DEBUG: SERVER_URL={SERVER_URL}")
+print(f"DEBUG: KIOSK_USER={KIOSK_USER}")
+print(f"DEBUG: KIOSK_PASS={KIOSK_PASS}")
 
 class KioskGUI:
     def __init__(self, kiosk_id='kiosk1'):
@@ -88,24 +92,26 @@ class KioskGUI:
     def notify_server(self):
         """Notify server that status changed"""
         try:
-            # Build auth if credentials provided
-            auth = None
-            if KIOSK_AUTH_USER and KIOSK_AUTH_PASS:
-                auth = (KIOSK_AUTH_USER, KIOSK_AUTH_PASS)
-            
-            requests.post(f'{SERVER_URL}/api/notify', timeout=1, auth=auth, verify=True)
+            requests.post(
+                f'{SERVER_URL}/api/notify',
+                auth=(KIOSK_USER, KIOSK_PASS),
+                timeout=1,
+                verify=True
+            )
         except:
             pass  # Fail silently if server unavailable
-
     
     def check_server_available(self):
         """Check if server is reachable"""
         try:
-            response = requests.get(f'{SERVER_URL}/api/status', timeout=1)
+            response = requests.get(
+                f'{SERVER_URL}/api/status',
+                auth=(KIOSK_USER, KIOSK_PASS),
+                timeout=1
+            )
             return response.status_code == 200
         except:
             return False
-
 
     def get_text_input(self, prompt, title="Input"):
         """Show a dialog to get text input with larger text"""
@@ -1368,7 +1374,11 @@ class KioskGUI:
         """Check if server is reachable and sync if needed"""
         def check():
             try:
-                response = requests.get(f'{SERVER_URL}/api/status', timeout=2)
+                response = requests.get(
+                    f'{SERVER_URL}/api/status',
+                    auth=(KIOSK_USER, KIOSK_PASS),
+                    timeout=2
+                )
                 if response.status_code == 200:
                     # Server is reachable
                     if self.offline_mode:
@@ -1456,7 +1466,12 @@ class KioskGUI:
                         'timestamp': trans['timestamp'],
                         'kiosk_id': trans['kiosk_id']
                     }
-                    response = requests.post(f'{SERVER_URL}/api/offline_sync/checkout', json=data, timeout=5)
+                    response = requests.post(
+                        f'{SERVER_URL}/api/offline_sync/checkout',
+                        json=data,
+                        auth=(KIOSK_USER, KIOSK_PASS),
+                        timeout=5
+                    )
                     
                 elif trans['transaction_type'] == 'checkin':
                     data = {
@@ -1464,7 +1479,12 @@ class KioskGUI:
                         'timestamp': trans['timestamp'],
                         'kiosk_id': trans['kiosk_id']
                     }
-                    response = requests.post(f'{SERVER_URL}/api/offline_sync/checkin', json=data, timeout=5)
+                    response = requests.post(
+                        f'{SERVER_URL}/api/offline_sync/checkin',
+                        json=data,
+                        auth=(KIOSK_USER, KIOSK_PASS),
+                        timeout=5
+                    )
                 
                 if response.status_code == 200:
                     mark_synced(trans['id'])
