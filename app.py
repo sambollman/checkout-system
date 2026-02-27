@@ -21,6 +21,25 @@ def require_kiosk_auth(f):
         return f(*args, **kwargs)
     return decorated_function
 
+# Okta proxy authentication (production)
+USERNAME_HEADER_NAME = os.getenv('USERNAME_HEADER_NAME')  # e.g., 'x-auth-proxy-username'
+
+# Admin users authorized to access admin panel
+ADMIN_USERS = [
+    'sam.bollman',
+    'john.smith',
+    # Add more admin emails/usernames here
+]
+
+def get_authenticated_user():
+    """Get authenticated user from proxy header (if configured)"""
+    if USERNAME_HEADER_NAME:
+        return request.headers.get(USERNAME_HEADER_NAME)
+    return None
+
+def is_admin_user(username):
+    """Check if user is authorized for admin access"""
+    return username in ADMIN_USERS
 
 
 app = Flask(__name__)
