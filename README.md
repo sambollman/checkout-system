@@ -55,6 +55,29 @@ python kiosk_gui.py
 Access dashboard at: http://localhost:5000
 Admin panel at: http://localhost:5000/admin (password: `admin123`)
 
+### Server Setup
+(existing Docker instructions stay here...)
+
+### Running the Kiosk
+
+**Windows:**
+1. Install Python 3.11+
+2. Clone repository
+3. Double-click `Start_Kiosk.bat`
+
+**Linux:**
+1. Install Python 3.11+
+2. Clone repository
+3. Run: `./start_kiosk.sh`
+
+**Note:** Update environment variables in the launcher scripts for production:
+- `KIOSK_USER` - Username for Basic Auth
+- `KIOSK_PASS` - Password for Basic Auth  
+- `SERVER_URL` - URL of the server (e.g., `https://checkout.company.local`)
+
+For production deployment, IT should set these to secure values.
+
+
 ## Production Deployment
 ### Authentication
 

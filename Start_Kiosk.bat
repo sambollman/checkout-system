@@ -4,7 +4,7 @@ REM Double-click this file to start the kiosk application
 
 REM Set environment variables (update these for production)
 set KIOSK_USER=kiosk
-set KIOSK_PASS=change-this-in-production
+set KIOSK_PASS=test-password-123
 set SERVER_URL=http://localhost:5000
 
 REM Navigate to kiosk directory
