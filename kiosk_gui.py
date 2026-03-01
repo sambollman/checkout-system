@@ -977,6 +977,8 @@ class KioskGUI:
                 fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ?', (fob_id,)).fetchone()
                 conn.close()
                 
+                self.notify_server()
+   
                 # If user already scanned card, check out the new fob immediately
                 if self.current_user:
                     conn = get_db()
