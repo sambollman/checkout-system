@@ -60,23 +60,16 @@ Admin panel at: http://localhost:5000/admin (password: `admin123`)
 
 ### Running the Kiosk
 
-**Windows:**
-1. Install Python 3.11+
-2. Clone repository
-3. Double-click `Start_Kiosk.bat`
+### Running the Kiosk
 
-**Linux:**
-1. Install Python 3.11+
-2. Clone repository
-3. Run: `./start_kiosk.sh`
+See **Kiosk Installation** section above for detailed setup instructions.
 
-**Note:** Update environment variables in the launcher scripts for production:
-- `KIOSK_USER` - Username for Basic Auth
-- `KIOSK_PASS` - Password for Basic Auth  
-- `SERVER_URL` - URL of the server (e.g., `https://checkout.company.local`)
+**Quick Start (after installation):**
 
-For production deployment, IT should set these to secure values.
+**Windows:** Double-click `Start_Kiosk.bat`  
+**Linux:** Run `./start_kiosk.sh`
 
+**Production:** Update environment variables in launcher scripts to match server configuration.
 
 ## Production Deployment
 ### Authentication
