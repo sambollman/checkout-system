@@ -338,12 +338,34 @@ checkout-system/
 - No email notifications (add if needed)
 - No mobile app (web dashboard is mobile-responsive)
 
-## Future Enhancements
-- Email/Teams notifications on checkout
-- Mobile app for status viewing
-- RFID location tracking
-- Integration with maintenance scheduling
-- Advanced analytics and reporting
+#### Troubleshooting
+
+**"Offline Mode" banner appears:**
+- Check `SERVER_URL` is correct in launcher script
+- Verify network connection to server
+- Confirm `KIOSK_USER` and `KIOSK_PASS` match server configuration
+- Test: `curl -u username:password SERVER_URL/api/status`
+
+**RFID/Barcode scanner not working:**
+- Verify USB connection (try different port)
+- Test by scanning into Notepad - should type numbers/letters
+- Ensure devices are HID keyboard wedge type (no drivers needed)
+- Check USB power if using hub
+
+**Python not found:**
+- Install Python 3.11+ from [python.org](https://www.python.org/downloads/)
+- During installation, check "Add Python to PATH"
+- Restart Command Prompt/Terminal after install
+
+**Emojis show as boxes:**
+- **Windows:** Should work on Windows 10/11 by default
+- **Linux:** Install emoji font: `sudo apt install fonts-noto-color-emoji`
+- Restart kiosk after font installation
+
+**Import errors when running:**
+- Ensure virtual environment is activated
+- Re-run: `pip install -r requirements.txt`
+- Check Python version: `python --version` (should be 3.11+)
 
 ## Contact
 Sam Bollman  
