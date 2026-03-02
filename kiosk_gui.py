@@ -485,7 +485,7 @@ class KioskGUI:
             fg='white',
             bg='black'
         )
-        icon_label.pack(pady=(50, 30))
+        icon_label.pack(pady=(50, 20))
         
         # Main instruction
         msg_label = tk.Label(
@@ -495,12 +495,213 @@ class KioskGUI:
             fg='white',
             bg='black'
         )
-        msg_label.pack()
+        msg_label.pack(pady=(0, 30))
         
+        # Button container
+        button_frame = tk.Frame(self.message_frame, bg='black')
+        button_frame.pack(pady=20)
+        
+        # Add Note button
+        note_btn = tk.Button(
+            button_frame,
+            text="📝 Add Note",
+            font=font.Font(size=16, weight='bold'),
+            bg='#2196F3',
+            fg='white',
+            width=15,
+            height=2,
+            command=self.add_note
+        )
+        note_btn.pack(side='left', padx=10)
+        
+        # Replace Fob button
+        fob_btn = tk.Button(
+            button_frame,
+            text="🔑 Replace Fob",
+            font=font.Font(size=16, weight='bold'),
+            bg='#FF9800',
+            fg='white',
+            width=15,
+            height=2,
+            command=self.replace_fob
+        )
+        fob_btn.pack(side='left', padx=10)
+        
+        # Replace Card button
+        card_btn = tk.Button(
+            button_frame,
+            text="💳 Replace Card",
+            font=font.Font(size=16, weight='bold'),
+            bg='#9C27B0',
+            fg='white',
+            width=15,
+            height=2,
+            command=self.replace_card
+        )
+        card_btn.pack(side='left', padx=10)
+        
+        # Barns Transfer button
+        barns_btn = tk.Button(
+            button_frame,
+            text="🏭 Barns Transfer",
+            font=font.Font(size=16, weight='bold'),
+            bg='#795548',
+            fg='white',
+            width=15,
+            height=2,
+            command=self.barns_transfer
+        )
+        barns_btn.pack(side='left', padx=10)
         # Instructions
-        self.instructions_label.config(text="Press F11 for fullscreen | Press R to replace card | Press F to replace fob | Press N to add note")
+        self.instructions_label.config(text="Press F11 for fullscreen")
         
     
+    def add_note(self):
+        """Button handler for adding note"""
+        # Simulate pressing 'n' key
+        event = type('Event', (), {'char': 'n', 'keysym': 'n'})()
+        self.on_key_press(event)
+    
+    def replace_fob(self):
+        """Button handler for replacing fob"""
+        # Simulate pressing 'f' key
+        event = type('Event', (), {'char': 'f', 'keysym': 'f'})()
+        self.on_key_press(event)
+    
+    def replace_card(self):
+        """Button handler for replacing card"""
+        # Simulate pressing 'r' key
+        event = type('Event', (), {'char': 'r', 'keysym': 'r'})()
+        self.on_key_press(event)
+
+    def barns_transfer(self):
+        """Transfer vehicle to The Barns"""
+        from tkinter import Toplevel, Button, Label, Listbox, Scrollbar, SINGLE
+        
+        conn = get_db()
+        
+        # Get "The Barns" user
+        barns_user = conn.execute('SELECT * FROM users WHERE card_id = ?', ('BARNS',)).fetchone()
+        
+        if not barns_user:
+            # Create The Barns user if doesn't exist
+            conn.execute('INSERT INTO users (card_id, first_name, last_name, is_active) VALUES (?, ?, ?, ?)',
+                        ('BARNS', 'The', 'Barns', 1))
+            conn.commit()
+            barns_user = conn.execute('SELECT * FROM users WHERE card_id = ?', ('BARNS',)).fetchone()
+        
+        # Get all vehicles (not equipment)
+        vehicles = conn.execute('''
+            SELECT kf.*, c.id as checkout_id, c.checked_out_at, u.first_name, u.last_name
+            FROM key_fobs kf
+            LEFT JOIN checkouts c ON kf.id = c.fob_id AND c.checked_in_at IS NULL
+            LEFT JOIN users u ON c.user_id = u.id
+            WHERE kf.category IN ('Squad Cars', 'CSO Vehicles', 'CID Vehicles')
+            AND kf.is_active = 1
+            ORDER BY kf.vehicle_name
+        ''').fetchall()
+        
+        conn.close()
+        
+        if not vehicles:
+            self.show_error("No vehicles found")
+            return
+        
+        # Create selection dialog
+        result = [None]
+        
+        def on_select():
+            selection = listbox.curselection()
+            if selection:
+                result[0] = vehicles[selection[0]]
+                dialog.destroy()
+        
+        dialog = Toplevel(self.root)
+        dialog.title("Barns Transfer - Select Vehicle")
+        dialog.geometry("800x800")
+        dialog.configure(bg='white')
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        Label(dialog, text="🏭 Transfer Vehicle to The Barns", 
+              font=font.Font(size=20, weight='bold'), bg='white').pack(pady=(20, 10))
+        
+        Label(dialog, text="Select the vehicle being dropped off:", 
+              font=font.Font(size=14), bg='white').pack(pady=(0, 20))
+        
+        # Listbox with scrollbar
+        list_frame = tk.Frame(dialog, bg='white')
+        list_frame.pack(fill='both', expand=True, padx=20, pady=(0, 20))
+        
+        scrollbar = Scrollbar(list_frame)
+        scrollbar.pack(side='right', fill='y')
+        
+        listbox = Listbox(list_frame, font=font.Font(size=14), height=20, 
+                         yscrollcommand=scrollbar.set, selectmode=SINGLE)
+        listbox.pack(side='left', fill='both', expand=True)
+        scrollbar.config(command=listbox.yview)
+        
+        # Populate list
+        for v in vehicles:
+            status = "Available" if not v['checkout_id'] else f"Checked out to {v['first_name']} {v['last_name']}"
+            listbox.insert('end', f"{v['vehicle_name']} - {status}")
+        
+        # Buttons
+        button_frame = tk.Frame(dialog, bg='white')
+        button_frame.pack(pady=20)
+        
+        Button(button_frame, text="Transfer to Barns", command=on_select,
+               font=font.Font(size=16), bg='#795548', fg='white',
+               width=18, height=2).pack(side='left', padx=10)
+        
+        Button(button_frame, text="Cancel", command=dialog.destroy,
+               font=font.Font(size=16), bg='#999', fg='white',
+               width=12, height=2).pack(side='left', padx=10)
+        
+        dialog.wait_window()
+        
+        if not result[0]:
+            return
+        
+        vehicle = result[0]
+        
+        # Perform transfer
+        conn = get_db()
+        chicago_tz = pytz.timezone('America/Chicago')
+        
+        try:
+            # If currently checked out, check it in first
+            if vehicle['checkout_id']:
+                conn.execute('UPDATE checkouts SET checked_in_at = ? WHERE id = ?',
+                            (datetime.now(chicago_tz), vehicle['checkout_id']))
+            
+            # Check out to The Barns
+            conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
+                        (barns_user['id'], vehicle['id'], self.kiosk_id, datetime.now(chicago_tz)))
+            conn.commit()
+            conn.close()
+            print("About to call notify server...")
+            self.notify_server()
+            print(" notify_server completed")
+            # Show success
+            self.clear_message_frame()
+            
+            Label(self.message_frame, text="✅", font=font.Font(size=120),
+                  fg='#4CAF50', bg='black').pack(pady=(50, 30))
+            
+            Label(self.message_frame, 
+                  text=f"{vehicle['vehicle_name']}\ntransferred to The Barns",
+                  font=self.header_font, fg='white', bg='black',
+                  justify='center').pack()
+            
+            self.root.after(3000, self.show_welcome)
+            
+        except Exception as e:
+            conn.close()
+            self.show_error(f"Transfer failed: {e}")
+
+
+
     def show_user_greeting(self, user):
         """Show greeting after card scan"""
         self.clear_message_frame()

@@ -612,54 +612,55 @@ body {
         
         // Fetch and update display
         function updateDisplay(data) {
-            // Update vehicles
-            updateSection('vehiclesCards', 'vehiclesTable', data.vehicles, 'Vehicle');
-            // Update equipment  
-            updateSection('equipmentCards', 'equipmentTable', data.equipment, 'Equipment');
+            // Update each category tab
+            updateSection('Squad Cars', data.squad_cars);
+            updateSection('CSO Vehicles', data.cso_vehicles);
+            updateSection('CID Vehicles', data.cid_vehicles);
+            updateSection('Equipment', data.equipment);
         }
         
-        function updateSection(cardsId, tableId, items, type) {
-            const cardsDiv = document.getElementById(cardsId);
-            const tableDiv = document.getElementById(tableId);
-            const currentView = localStorage.getItem('viewPreference') || 'card';
+        function updateSection(category, items) {
+            if (!items) return; // Skip if no data
             
-            if (currentView === 'card' && cardsDiv) {
-                // Update card view
-                cardsDiv.innerHTML = items.map(key => `
-                    <div class="key-card ${key.checkout_id ? 'checked-out' : 'available'}">
-                        <div class="vehicle-name">${key.vehicle_name}</div>
-                        ${key.checkout_id ? `
-                            <div class="status checked-out">
-                                <strong>Checked out to:</strong><br>
-                                ${key.first_name} ${key.last_name}<br>
-                                <small>Since ${key.checked_out_at}</small>
-                            </div>
-                        ` : `
-                            <div class="status available">
-                                ✓ Available
-                            </div>
-                        `}
-                        ${key.reservation ? `
-                            <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
-                                📅 Reserved<br>
-                                <small>
-                                    ${key.reservation.first_name ? `For: ${key.reservation.first_name} ${key.reservation.last_name}<br>` : ''}
-                                    ${key.reservation.reserved_for_name ? `For: ${key.reservation.reserved_for_name}<br>` : ''}
-                                    Time: ${formatDateTime(key.reservation.reserved_datetime)}<br>
-                                    ${key.reservation.reason ? key.reservation.reason : ''}
-                                </small>
-                            </div>
-                            </div>
-                        ` : ''}
-                        ${key.note ? `
-                            <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
-                                ⚠️ Note: ${key.note.note_text}
-                            </div>
-                        ` : ''}  <!-- End of note --> 
-                    </div> <!-- End of card -->
-                `).join('');
-            }
+            const contentDiv = document.getElementById(`${category}-content`);
+            if (!contentDiv) return; // Skip if tab doesn't exist
             
+            const gridDiv = contentDiv.querySelector('.grid');
+            if (!gridDiv) return;
+            
+            // Update the grid with new cards
+            gridDiv.innerHTML = items.map(key => `
+                <div class="key-card ${key.checkout_id ? 'checked-out' : 'available'}">
+                    <div class="vehicle-name">${key.vehicle_name}</div>
+                    ${key.checkout_id ? `
+                        <div class="status checked-out">
+                            <strong>Checked out to:</strong><br>
+                            ${key.first_name} ${key.last_name}<br>
+                            <small>Since ${key.checked_out_at}</small>
+                        </div>
+                    ` : `
+                        <div class="status available">
+                            ✓ Available
+                        </div>
+                    `}
+                    ${key.reservation ? `
+                        <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                            📅 Reserved<br>
+                            <small>
+                                ${key.reservation.first_name ? `For: ${key.reservation.first_name} ${key.reservation.last_name}<br>` : ''}
+                                ${key.reservation.reserved_for_name ? `For: ${key.reservation.reserved_for_name}<br>` : ''}
+                                Time: ${key.reservation.reserved_datetime}<br>
+                                ${key.reservation.reason || ''}
+                            </small>
+                        </div>
+                    ` : ''}
+                    ${key.note ? `
+                        <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                            ⚠️ Note: ${key.note.note_text}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
         }
         
         // Fetch initial data and poll for updates every 5 seconds as backup
@@ -721,31 +722,33 @@ body {
         });
 
        
-
         function switchToTab(category) {
-
             // Update tab buttons
-
             document.querySelectorAll('.tab').forEach(t => {
-
                 t.classList.remove('active');
-
             });
-
-            document.querySelector(`.tab[data-category="${category}"]`).classList.add('active');
-
-           
-
+            
+            const tabButton = document.querySelector(`.tab[data-category="${category}"]`);
+            if (tabButton) {
+                tabButton.classList.add('active');
+            } else {
+                // Category doesn't exist, default to first tab
+                const firstTab = document.querySelector('.tab');
+                if (firstTab) {
+                    firstTab.classList.add('active');
+                    category = firstTab.getAttribute('data-category');
+                }
+            }
+            
             // Update content
-
             document.querySelectorAll('.tab-content').forEach(content => {
-
                 content.classList.remove('active');
-
             });
-
-            document.getElementById(`${category}-content`).classList.add('active');
-
+            
+            const tabContent = document.getElementById(`${category}-content`);
+            if (tabContent) {
+                tabContent.classList.add('active');
+            }
         }
 
        

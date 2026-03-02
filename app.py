@@ -290,12 +290,21 @@ def api_status():
         return [int(text) if text.isdigit() else text.lower() 
                 for text in re.split('([0-9]+)', item['vehicle_name'])]
     
-    vehicles = sorted([k for k in formatted_keys if k['category'] == 'Vehicle'], 
-                     key=natural_sort_key)
+    squad_cars = sorted([k for k in formatted_keys if k['category'] == 'Squad Cars'], 
+                       key=natural_sort_key)
+    cso_vehicles = sorted([k for k in formatted_keys if k['category'] == 'CSO Vehicles'], 
+                         key=natural_sort_key)
+    cid_vehicles = sorted([k for k in formatted_keys if k['category'] == 'CID Vehicles'], 
+                         key=natural_sort_key)
     equipment = sorted([k for k in formatted_keys if k['category'] == 'Equipment'], 
                       key=natural_sort_key)
     
-    return {'vehicles': vehicles, 'equipment': equipment}
+    return {
+        'squad_cars': squad_cars,
+        'cso_vehicles': cso_vehicles,
+        'cid_vehicles': cid_vehicles,
+        'equipment': equipment
+    }
 
 @app.route('/api/notify', methods=['POST'])
 @require_kiosk_auth
