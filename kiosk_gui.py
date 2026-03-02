@@ -558,21 +558,15 @@ class KioskGUI:
     
     def add_note(self):
         """Button handler for adding note"""
-        # Simulate pressing 'n' key
-        event = type('Event', (), {'char': 'n', 'keysym': 'n'})()
-        self.on_key_press(event)
+        self.start_note_mode()
     
     def replace_fob(self):
         """Button handler for replacing fob"""
-        # Simulate pressing 'f' key
-        event = type('Event', (), {'char': 'f', 'keysym': 'f'})()
-        self.on_key_press(event)
+        self.start_replace_fob_mode()
     
     def replace_card(self):
         """Button handler for replacing card"""
-        # Simulate pressing 'r' key
-        event = type('Event', (), {'char': 'r', 'keysym': 'r'})()
-        self.on_key_press(event)
+        self.start_replace_card_mode()
 
     def barns_transfer(self):
         """Transfer vehicle to The Barns"""
@@ -845,21 +839,6 @@ class KioskGUI:
             self.exit_fullscreen()
             return
         
-        # Check for replace mode trigger (R key pressed alone)
-        if (event.char == 'r' or event.char == 'R') and not self.scan_buffer:
-            self.start_replace_card_mode()
-            return
-        
-        # Check for replace fob mode (F key pressed alone)
-        if (event.char == 'f' or event.char == 'F') and not self.scan_buffer:
-            self.start_replace_fob_mode()
-            return
-        
-        # Check for note mode (N key pressed alone)
-        if (event.char == 'n' or event.char == 'N') and not self.scan_buffer and not self.current_user:
-            self.start_note_mode()
-            return
-
         # Handle Enter key - process scan
         if event.char == '\r' or event.char == '\n':
             # Process the scan buffer
@@ -1156,7 +1135,7 @@ class KioskGUI:
             
             # Dropdown for category
             category_var = tk.StringVar(value="Squad Cars")
-            categories = ["Squad Cars", "CSO Vehicles", "CID Vehicles", "Equipment"]
+            categories = ["Squad Cars", "CSO Vehicles", "CID Vehicles", "Other Vehicles", "Equipment"]
             
             dropdown = ttk.Combobox(dialog, textvariable=category_var, values=categories, 
                                    font=font.Font(size=16), state='readonly', width=20)

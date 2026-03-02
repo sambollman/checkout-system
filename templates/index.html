@@ -377,6 +377,7 @@ body {
         <button class="tab active" data-category="Squad Cars">🚓 Squad Cars</button>
         <button class="tab" data-category="CID Vehicles">🚔 CID Vehicles</button>
         <button class="tab" data-category="CSO Vehicles">🚙 CSO Vehicles</button>
+        <button class="tab" data-category="Other Vehicles">🚗 Other Vehicles</button>
         <button class="tab" data-category="Equipment">🔧 Equipment</button>
     </div>
 
@@ -466,6 +467,47 @@ body {
 <div class="tab-content" id="CID Vehicles-content">
     <div class="grid">
         {% for key in cid_vehicles %}
+        <div class="key-card {% if key.checkout_id %}checked-out{% else %}available{% endif %}">
+            <div class="vehicle-name">{{ key.vehicle_name }}</div>
+            {% if key.checkout_id %}
+                <div class="status checked-out">
+                    <strong>Checked out to:</strong><br>
+                    {{ key.first_name }} {{ key.last_name }}<br>
+                    <small>Since {{ key.checked_out_at }}</small>
+                </div>
+            {% else %}
+                <div class="status available">
+                    ✓ Available
+                </div>
+            {% endif %}
+            {% if key.reservation %}
+                <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    📅 Reserved<br>
+                    <small>
+                        {% if key.reservation.first_name %}
+                            For: {{ key.reservation.first_name }} {{ key.reservation.last_name }}<br>
+                        {% elif key.reservation.reserved_for_name %}
+                            For: {{ key.reservation.reserved_for_name }}<br>
+                        {% endif %}
+                        Time: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
+                    </small>
+                </div>
+            {% endif %}
+            {% if key.note %}
+                <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    ⚠️ Note: {{ key.note.note_text }}
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Other Vehicles Tab -->
+<div class="tab-content" id="Other Vehicles-content">
+    <div class="grid">
+        {% for key in other_vehicles %}
         <div class="key-card {% if key.checkout_id %}checked-out{% else %}available{% endif %}">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
@@ -616,6 +658,7 @@ body {
             updateSection('Squad Cars', data.squad_cars);
             updateSection('CSO Vehicles', data.cso_vehicles);
             updateSection('CID Vehicles', data.cid_vehicles);
+            updateSection('Other Vehicles', data.other_vehicles);
             updateSection('Equipment', data.equipment);
         }
         

@@ -175,6 +175,8 @@ def index():
                          key=natural_sort_key)
     cid_vehicles = sorted([k for k in formatted_keys if k['category'] == 'CID Vehicles'], 
                          key=natural_sort_key)
+    other_vehicles = sorted([k for k in formatted_keys if k['category'] == 'Other Vehicles'], 
+                       key=natural_sort_key)
     equipment = sorted([k for k in formatted_keys if k['category'] == 'Equipment'], 
                       key=natural_sort_key)
     
@@ -182,8 +184,8 @@ def index():
                       squad_cars=squad_cars,
                       cso_vehicles=cso_vehicles, 
                       cid_vehicles=cid_vehicles,
+                      other_vehicles=other_vehicles,
                       equipment=equipment)
-
 @app.route('/api/status')
 @require_kiosk_auth
 def api_status():
@@ -296,15 +298,18 @@ def api_status():
                          key=natural_sort_key)
     cid_vehicles = sorted([k for k in formatted_keys if k['category'] == 'CID Vehicles'], 
                          key=natural_sort_key)
+    other_vehicles = sorted([k for k in formatted_keys if k['category'] == 'Other Vehicles'], 
+                       key=natural_sort_key)
     equipment = sorted([k for k in formatted_keys if k['category'] == 'Equipment'], 
                       key=natural_sort_key)
     
     return {
-        'squad_cars': squad_cars,
-        'cso_vehicles': cso_vehicles,
-        'cid_vehicles': cid_vehicles,
-        'equipment': equipment
-    }
+    'squad_cars': squad_cars,
+    'cso_vehicles': cso_vehicles,
+    'cid_vehicles': cid_vehicles,
+    'other_vehicles': other_vehicles,
+    'equipment': equipment
+}
 
 @app.route('/api/notify', methods=['POST'])
 @require_kiosk_auth
