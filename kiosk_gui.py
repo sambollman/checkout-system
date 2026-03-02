@@ -581,14 +581,14 @@ class KioskGUI:
         conn = get_db()
         
         # Get "The Barns" user
-        barns_user = conn.execute('SELECT * FROM users WHERE card_id = ?', ('BARNS',)).fetchone()
+        barns_user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', ('BARNS',)).fetchone()
         
         if not barns_user:
             # Create The Barns user if doesn't exist
             conn.execute('INSERT INTO users (card_id, first_name, last_name, is_active) VALUES (?, ?, ?, ?)',
                         ('BARNS', 'The', 'Barns', 1))
             conn.commit()
-            barns_user = conn.execute('SELECT * FROM users WHERE card_id = ?', ('BARNS',)).fetchone()
+            barns_user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', ('BARNS',)).fetchone()
         
         # Get all vehicles (not equipment)
         vehicles = conn.execute('''
@@ -876,8 +876,8 @@ class KioskGUI:
         """Process a scanned card or fob"""
         # Check if we've seen this ID before
         conn = get_db()
-        user = conn.execute('SELECT * FROM users WHERE card_id = ?', (scan_data,)).fetchone()
-        fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ?', (scan_data,)).fetchone()
+        user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', (scan_data,)).fetchone()
+        fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE', (scan_data,)).fetchone()
         conn.close()
         
         # If it exists in either table, route accordingly
@@ -933,7 +933,7 @@ class KioskGUI:
             # This is the NEW card being scanned
             conn = get_db()
             # Check if new card already exists
-            existing = conn.execute('SELECT * FROM users WHERE card_id = ?', (card_id,)).fetchone()
+            existing = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', (card_id,)).fetchone()
             if existing:
                 conn.close()
                 self.replace_mode = None
@@ -990,7 +990,7 @@ class KioskGUI:
         # Check if there's a pending fob to check out
         if hasattr(self, 'pending_fob') and self.pending_fob:
             conn = get_db()
-            user = conn.execute('SELECT * FROM users WHERE card_id = ? AND is_active = 1', 
+            user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE AND is_active = 1', 
                                (card_id,)).fetchone()
             conn.close()
             if not user:
@@ -1013,7 +1013,7 @@ class KioskGUI:
                     conn.execute('INSERT INTO users (card_id, first_name, last_name, registered_at) VALUES (?, ?, ?,?)',
                                 (card_id, first_name.strip(), last_name.strip(), datetime.now(pytz.timezone('America/Chicago'))))
                     conn.commit()
-                    user = conn.execute('SELECT * FROM users WHERE card_id = ?', (card_id,)).fetchone()
+                    user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', (card_id,)).fetchone()
                     conn.close()
                 except Exception as e:
                     conn.close()
@@ -1067,7 +1067,7 @@ class KioskGUI:
             
 
         conn = get_db()
-        user = conn.execute('SELECT * FROM users WHERE card_id = ? AND is_active = 1', 
+        user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE AND is_active = 1', 
                            (card_id,)).fetchone()
         conn.close()
         
@@ -1091,7 +1091,7 @@ class KioskGUI:
                 conn.execute('INSERT INTO users (card_id, first_name, last_name, registered_at) VALUES (?, ?, ?,?)',
                             (card_id, first_name.strip(), last_name.strip(), datetime.now(pytz.timezone('America/Chicago'))))
                 conn.commit()
-                user = conn.execute('SELECT * FROM users WHERE card_id = ?', (card_id,)).fetchone()
+                user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', (card_id,)).fetchone()
                 conn.close()
             except Exception as e:
                 conn.close()
@@ -1110,7 +1110,7 @@ class KioskGUI:
         # Check if in note mode
         if self.note_mode:
             print("DEBUG: In note mode, fob_id:", fob_id)
-            fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ? AND is_active = 1', (fob_id,)).fetchone()
+            fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE AND is_active = 1', (fob_id,)).fetchone()
             
             if not fob:
                 conn.close()
@@ -1122,7 +1122,7 @@ class KioskGUI:
             return
 
 
-        fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ? AND is_active = 1', 
+        fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE AND is_active = 1', 
                           (fob_id,)).fetchone()
         
         if not fob:
@@ -1180,7 +1180,7 @@ class KioskGUI:
                 conn.execute('INSERT INTO key_fobs (fob_id, vehicle_name, category, location, registered_at) VALUES (?, ?, ?, ?,?)',
                             (fob_id, vehicle_name.strip(), category, location.strip(), datetime.now(pytz.timezone('America/Chicago'))))
                 conn.commit()
-                fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ?', (fob_id,)).fetchone()
+                fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE', (fob_id,)).fetchone()
                 conn.close()
                 
                 self.notify_server()
