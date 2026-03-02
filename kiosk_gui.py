@@ -934,40 +934,45 @@ class KioskGUI:
                 self.show_error("Registration cancelled")
                 return
             
-            # Ask for category with custom larger dialog
-            from tkinter import Toplevel, Button, Label
+        # Ask for category with dropdown
+            from tkinter import Toplevel, Button, Label, ttk
             
             result = [None]
             
-            def on_vehicle():
-                result[0] = "Vehicle"
-                dialog.destroy()
-            
-            def on_equipment():
-                result[0] = "Equipment"
+            def on_submit():
+                result[0] = category_var.get()
                 dialog.destroy()
             
             dialog = Toplevel(self.root)
             dialog.title("Category")
-            dialog.geometry("600x300")
+            dialog.geometry("600x350")
             dialog.configure(bg='white')
             dialog.transient(self.root)
             dialog.grab_set()
             
-            Label(dialog, text="Is this a Vehicle or Equipment?", 
-                  font=font.Font(size=18), bg='white', wraplength=550).pack(pady=(40, 30))
+            Label(dialog, text="What category is this equipment?", 
+                  font=font.Font(size=18), bg='white', wraplength=550).pack(pady=(40, 20))
             
-            Button(dialog, text="Vehicle", command=on_vehicle, 
-                   font=font.Font(size=18), width=15, height=2).pack(pady=10)
-            Button(dialog, text="Equipment", command=on_equipment, 
-                   font=font.Font(size=18), width=15, height=2).pack(pady=10)
+            # Dropdown for category
+            category_var = tk.StringVar(value="Squad Cars")
+            categories = ["Squad Cars", "CSO Vehicles", "CID Vehicles", "Equipment"]
+            
+            dropdown = ttk.Combobox(dialog, textvariable=category_var, values=categories, 
+                                   font=font.Font(size=16), state='readonly', width=20)
+            dropdown.pack(pady=20)
+            
+            Button(dialog, text="Continue", command=on_submit, 
+                   font=font.Font(size=18), bg='#4CAF50', fg='white',
+                   width=15, height=2).pack(pady=20)
             
             dialog.wait_window()
-            category = result[0] if result[0] else "Vehicle"
+            category = result[0] if result[0] else "Squad Cars"
             self.last_scan_time = datetime.now()  # Reset timeout
             
             location = self.get_text_input("Location (press OK for 'Station'):", title="Location") or "Station"
             self.last_scan_time = datetime.now()  # Reset timeout
+
+
         # Register the fob
             conn = get_db()
             try:

@@ -101,7 +101,7 @@ body {
         }
         .key-card {
             background: white;
-            padding: 20px;
+            padding: 5px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             transition: background-color 0.3s, color 0.3s;
@@ -222,6 +222,105 @@ body {
             max-height: 0 !important;
             opacity: 0;
         }
+        /* Tab Styles */
+
+        .tab-container {
+
+            display: flex;
+
+            gap: 10px;
+
+            margin: 20px 0;
+
+            border-bottom: 2px solid #ddd;
+
+        }
+
+       
+
+        body.dark-mode .tab-container {
+
+            border-bottom: 2px solid #444;
+
+        }
+
+       
+
+        .tab {
+
+            padding: 15px 30px;
+
+            cursor: pointer;
+
+            background: transparent;
+
+            border: none;
+
+            border-bottom: 3px solid transparent;
+
+            font-size: 1.1em;
+
+            font-weight: bold;
+
+            color: #666;
+
+            transition: all 0.3s;
+
+        }
+
+       
+
+        body.dark-mode .tab {
+
+            color: #bbb;
+
+        }
+
+       
+
+        .tab:hover {
+
+            color: #333;
+
+            border-bottom-color: #ccc;
+
+        }
+
+       
+
+        body.dark-mode .tab:hover {
+
+            color: #fff;
+
+            border-bottom-color: #666;
+
+        }
+
+       
+
+        .tab.active {
+
+            color: #4CAF50;
+
+            border-bottom-color: #4CAF50;
+
+        }
+
+       
+
+        .tab-content {
+
+            display: none;
+
+        }
+
+       
+
+        .tab-content.active {
+
+            display: block;
+
+        }
 /* Mobile responsive */
         @media (max-width: 768px) {
             body {
@@ -270,27 +369,21 @@ body {
             <span class="slider"></span>
         </label>
     </div>
-    <div class="view-toggle">
-        <span class="view-toggle-label">📊 View</span>
-        <label class="toggle-switch">
-            <input type="checkbox" id="viewToggle">
-            <span class="slider"></span>
-        </label>
-    </div>
-
     <h1>Vehicle & Equipment Checkout System</h1>
     <a href="/admin/login" class="admin-link">Admin</a>
 
-     {% if vehicles %}
-    <h2 class="section-header" onclick="toggleSection('vehicles')">
-        🚓 Vehicles
-        <span class="collapse-icon" id="vehiclesIcon">▼</span>
-    </h2>
-    <div class="collapsible-content" id="vehiclesContent">    
-    
-    <!-- Card View -->
-    <div class="grid" id="vehiclesCards">
-        {% for key in vehicles %}
+     
+    <div class="tab-container">
+        <button class="tab active" data-category="Squad Cars">🚓 Squad Cars</button>
+        <button class="tab" data-category="CID Vehicles">🚔 CID Vehicles</button>
+        <button class="tab" data-category="CSO Vehicles">🚙 CSO Vehicles</button>
+        <button class="tab" data-category="Equipment">🔧 Equipment</button>
+    </div>
+
+    <!-- Squad Cars Tab -->
+<div class="tab-content active" id="Squad Cars-content">
+    <div class="grid">
+        {% for key in squad_cars %}
         <div class="key-card {% if key.checkout_id %}checked-out{% else %}available{% endif %}">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
@@ -304,7 +397,6 @@ body {
                     ✓ Available
                 </div>
             {% endif %}
-
             {% if key.reservation %}
                 <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
                     📅 Reserved<br>
@@ -315,9 +407,7 @@ body {
                             For: {{ key.reservation.reserved_for_name }}<br>
                         {% endif %}
                         Time: {{ key.reservation.reserved_datetime }}<br>
-                        {% if key.reservation.reason %}
-                            {{ key.reservation.reason }}
-                        {% endif %}
+                        {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
                     </small>
                 </div>
             {% endif %}
@@ -329,63 +419,132 @@ body {
         </div>
         {% endfor %}
     </div>
-    
-    <!-- Table View -->
-    <div class="table-container" id="vehiclesTable">
-        <table>
-            <thead>
-                <tr>
-                    <th>Vehicle</th>
-                    <th>Status</th>
-                    <th>Checked Out To</th>
-                    <th>Since</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for key in vehicles %}
-                <tr>
-                    <td><strong>{{ key.vehicle_name }}</strong></td>
-                    <td>
-                        {% if key.checkout_id %}
-                            <span class="status-badge status-checked-out">Checked Out</span>
-                        {% else %}
-                            <span class="status-badge status-available">Available</span>
-                        {% endif %}
-                        {% if key.note %}
-                            <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.75em;">
-                                ⚠️ Note: {{ key.note.note_text }}
-                            </div>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if key.checkout_id %}
-                            {{ key.first_name }} {{ key.last_name }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if key.checkout_id %}
-                            {{ key.checked_out_at }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    </div>
-    {% endif %}
+</div>
 
-    {% if equipment %}
-    <h2 class="section-header" onclick="toggleSection('equipment')">
-        🔧 Equipment
-        <span class="collapse-icon" id="equipmentIcon">▼</span>
-    </h2>
-    <div class="collapsible-content" id="equipmentContent">        
+<!-- CSO Vehicles Tab -->
+<div class="tab-content" id="CSO Vehicles-content">
+    <div class="grid">
+        {% for key in cso_vehicles %}
+        <div class="key-card {% if key.checkout_id %}checked-out{% else %}available{% endif %}">
+            <div class="vehicle-name">{{ key.vehicle_name }}</div>
+            {% if key.checkout_id %}
+                <div class="status checked-out">
+                    <strong>Checked out to:</strong><br>
+                    {{ key.first_name }} {{ key.last_name }}<br>
+                    <small>Since {{ key.checked_out_at }}</small>
+                </div>
+            {% else %}
+                <div class="status available">
+                    ✓ Available
+                </div>
+            {% endif %}
+            {% if key.reservation %}
+                <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    📅 Reserved<br>
+                    <small>
+                        {% if key.reservation.first_name %}
+                            For: {{ key.reservation.first_name }} {{ key.reservation.last_name }}<br>
+                        {% elif key.reservation.reserved_for_name %}
+                            For: {{ key.reservation.reserved_for_name }}<br>
+                        {% endif %}
+                        Time: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
+                    </small>
+                </div>
+            {% endif %}
+            {% if key.note %}
+                <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    ⚠️ Note: {{ key.note.note_text }}
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- CID Vehicles Tab -->
+<div class="tab-content" id="CID Vehicles-content">
+    <div class="grid">
+        {% for key in cid_vehicles %}
+        <div class="key-card {% if key.checkout_id %}checked-out{% else %}available{% endif %}">
+            <div class="vehicle-name">{{ key.vehicle_name }}</div>
+            {% if key.checkout_id %}
+                <div class="status checked-out">
+                    <strong>Checked out to:</strong><br>
+                    {{ key.first_name }} {{ key.last_name }}<br>
+                    <small>Since {{ key.checked_out_at }}</small>
+                </div>
+            {% else %}
+                <div class="status available">
+                    ✓ Available
+                </div>
+            {% endif %}
+            {% if key.reservation %}
+                <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    📅 Reserved<br>
+                    <small>
+                        {% if key.reservation.first_name %}
+                            For: {{ key.reservation.first_name }} {{ key.reservation.last_name }}<br>
+                        {% elif key.reservation.reserved_for_name %}
+                            For: {{ key.reservation.reserved_for_name }}<br>
+                        {% endif %}
+                        Time: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
+                    </small>
+                </div>
+            {% endif %}
+            {% if key.note %}
+                <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    ⚠️ Note: {{ key.note.note_text }}
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Equipment Tab -->
+<div class="tab-content" id="Equipment-content">
+    <div class="grid">
+        {% for key in equipment %}
+        <div class="key-card {% if key.checkout_id %}checked-out{% else %}available{% endif %}">
+            <div class="vehicle-name">{{ key.vehicle_name }}</div>
+            {% if key.checkout_id %}
+                <div class="status checked-out">
+                    <strong>Checked out to:</strong><br>
+                    {{ key.first_name }} {{ key.last_name }}<br>
+                    <small>Since {{ key.checked_out_at }}</small>
+                </div>
+            {% else %}
+                <div class="status available">
+                    ✓ Available
+                </div>
+            {% endif %}
+            {% if key.reservation %}
+                <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    📅 Reserved<br>
+                    <small>
+                        {% if key.reservation.first_name %}
+                            For: {{ key.reservation.first_name }} {{ key.reservation.last_name }}<br>
+                        {% elif key.reservation.reserved_for_name %}
+                            For: {{ key.reservation.reserved_for_name }}<br>
+                        {% endif %}
+                        Time: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
+                    </small>
+                </div>
+            {% endif %}
+            {% if key.note %}
+                <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    ⚠️ Note: {{ key.note.note_text }}
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
     
+    <div class="tab-content" id="Equipment-content">    
     <!-- Card View -->
     <div class="grid" id="equipmentCards">
         {% for key in equipment %}
@@ -406,50 +565,6 @@ body {
         {% endfor %}
     </div>
     
-    <!-- Table View -->
-    <div class="table-container" id="equipmentTable">
-        <table>
-            <thead>
-                <tr>
-                    <th>Equipment</th>
-                    <th>Status</th>
-                    <th>Checked Out To</th>
-                    <th>Since</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for key in equipment %}
-                <tr>
-                    <td><strong>{{ key.vehicle_name }}</strong></td>
-                    <td>
-                        {% if key.checkout_id %}
-                            <span class="status-badge status-checked-out">Checked Out</span>
-                        {% else %}
-                            <span class="status-badge status-available">Available</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if key.checkout_id %}
-                            {{ key.first_name }} {{ key.last_name }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if key.checkout_id %}
-                            {{ key.checked_out_at }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    </div>
-    {% endif %}
-
     <script>
         // Dark mode toggle functionality
         const toggle = document.getElementById('darkModeToggle');
@@ -471,41 +586,6 @@ body {
                 localStorage.setItem('darkMode', 'disabled');
             }
         });
-        // View toggle functionality
-        const viewToggle = document.getElementById('viewToggle');
-        
-        function switchView(isTable) {
-            const vehiclesCards = document.getElementById('vehiclesCards');
-            const vehiclesTable = document.getElementById('vehiclesTable');
-            const equipmentCards = document.getElementById('equipmentCards');
-            const equipmentTable = document.getElementById('equipmentTable');
-            
-            if (isTable) {
-                // Show tables, hide cards
-                if (vehiclesCards) vehiclesCards.style.display = 'none';
-                if (vehiclesTable) vehiclesTable.style.display = 'block';
-                if (equipmentCards) equipmentCards.style.display = 'none';
-                if (equipmentTable) equipmentTable.style.display = 'block';
-                localStorage.setItem('viewPreference', 'table');
-            } else {
-                // Show cards, hide tables
-                if (vehiclesCards) vehiclesCards.style.display = 'grid';
-                if (vehiclesTable) vehiclesTable.style.display = 'none';
-                if (equipmentCards) equipmentCards.style.display = 'grid';
-                if (equipmentTable) equipmentTable.style.display = 'none';
-                localStorage.setItem('viewPreference', 'card');
-            }
-        }
-        
-        // Toggle change event
-        viewToggle.addEventListener('change', () => {
-            switchView(viewToggle.checked);
-        });
-        
-        // Load saved preference
-        const savedView = localStorage.getItem('viewPreference') || 'card';
-        viewToggle.checked = (savedView === 'table');
-        switchView(viewToggle.checked);
     </script>
 <!-- Socket.IO for real-time updates -->
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
@@ -580,38 +660,6 @@ body {
                 `).join('');
             }
             
-            if (tableDiv) {
-                // Update table view
-                const tbody = tableDiv.querySelector('tbody');
-                if (tbody) {
-                    tbody.innerHTML = items.map(key => `
-                        <tr>
-                            <td><strong>${key.vehicle_name}</strong></td>
-                            <td>
-                                ${key.checkout_id ? 
-                                    '<span class="status-badge status-checked-out">Checked Out</span>' :
-                                    '<span class="status-badge status-available">Available</span>'
-                                }
-                                ${key.note ? `
-                                    <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.75em;">
-                                        ⚠️ Note: ${key.note.note_text}
-                                    </div>
-                                ` : ''}
-                                ${key.reservation ? `
-                                    <div style="background: #FFA500; color: white; padding: 8px; border-radius: 3px; font-size: 0.85em;">
-                                        📅 Reserved<br>
-                                        <strong>For:</strong> ${key.reservation.first_name ? key.reservation.first_name + ' ' + key.reservation.last_name : key.reservation.reserved_for_name || 'N/A'}<br>
-                                        <strong>Time:</strong> ${formatDateTime(key.reservation.reserved_datetime)}
-                                        ${key.reservation.reason ? '<br><strong>Reason:</strong> ' + key.reservation.reason : ''}
-                                    </div>
-                                ` : ''}
-                            </td>
-                            <td>${key.checkout_id ? `${key.last_name}, ${key.first_name}` : '—'}</td>
-                            <td>${key.checkout_id ? key.checked_out_at : '—'}</td>
-                          </tr>
-                    `).join('');
-                }
-            }
         }
         
         // Fetch initial data and poll for updates every 5 seconds as backup
@@ -651,6 +699,65 @@ body {
                     }
                 }
             });
+        });
+        // Tab switching functionality
+
+        document.querySelectorAll('.tab').forEach(tab => {
+
+            tab.addEventListener('click', function() {
+
+                const category = this.getAttribute('data-category');
+
+                switchToTab(category);
+
+               
+
+                // Save preference
+
+                localStorage.setItem('preferred_tab', category);
+
+            });
+
+        });
+
+       
+
+        function switchToTab(category) {
+
+            // Update tab buttons
+
+            document.querySelectorAll('.tab').forEach(t => {
+
+                t.classList.remove('active');
+
+            });
+
+            document.querySelector(`.tab[data-category="${category}"]`).classList.add('active');
+
+           
+
+            // Update content
+
+            document.querySelectorAll('.tab-content').forEach(content => {
+
+                content.classList.remove('active');
+
+            });
+
+            document.getElementById(`${category}-content`).classList.add('active');
+
+        }
+
+       
+
+        // Restore preferred tab on load
+
+        window.addEventListener('load', () => {
+
+            const preferredTab = localStorage.getItem('preferred_tab') || 'vehicles';
+
+            switchToTab(preferredTab);
+
         });
     </script>
 </body>

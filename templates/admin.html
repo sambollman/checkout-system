@@ -335,8 +335,11 @@
                 <label>Fob ID: <input type="text" name="fob_id" required style="margin: 10px; padding: 5px;"></label><br>
                 <label>Name: <input type="text" name="vehicle_name" required style="margin: 10px; padding: 5px;"></label><br>
                 <label>Category: 
-                    <select name="category" style="margin: 10px; padding: 5px;">
-                        <option value="Vehicle">Vehicle</option>
+                    <select name="category" style="margin: 10px; padding: 5px;" required>
+                        <option value="">-- Select Category --</option>
+                        <option value="Squad Cars">Squad Cars</option>
+                        <option value="CSO Vehicles">CSO Vehicles</option>
+                        <option value="CID Vehicles">CID Vehicles</option>
                         <option value="Equipment">Equipment</option>
                     </select>
                 </label><br>
