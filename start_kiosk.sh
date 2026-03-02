@@ -4,7 +4,7 @@
 
 # Set environment variables (update these for production)
 export KIOSK_USER=kiosk
-export KIOSK_PASS=test-password-123
+export KIOSK_PASS=change-this-in-production
 export SERVER_URL=http://localhost:5000
 
 # Navigate to script directory
