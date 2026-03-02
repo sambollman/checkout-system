@@ -15,6 +15,9 @@ Working prototype running on Raspberry Pi 5. Ready for production deployment on 
 - **Multi-location ready:** Tracks which kiosk (garage, station, warehouse)
 - **Mobile responsive:** Dashboard works on phones/tablets
 - **Dark mode:** For both dashboard and admin panel
+- **Category Tabs:** Organize vehicles by type (Squad Cars, CSO Vehicles, CID Vehicles, Equipment)
+- **Barns Transfer:** Special workflow for vehicles dropped at maintenance facility without physical fob
+- **Clickable Kiosk Interface:** Button-based UI for note management, fob replacement, and card replacement
 
 ## Technology Stack
 - **Backend:** Python 3.11, Flask, Flask-SocketIO
