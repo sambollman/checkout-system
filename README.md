@@ -16,8 +16,9 @@ Working prototype running on Raspberry Pi 5. Ready for production deployment on 
 - **Mobile responsive:** Dashboard works on phones/tablets
 - **Dark mode:** For both dashboard and admin panel
 - **Category Tabs:** Organize vehicles by type (Squad Cars, CSO Vehicles, CID Vehicles, Equipment)
-- **Barns Transfer:** Special workflow for vehicles dropped at maintenance facility without physical fob
-- **Clickable Kiosk Interface:** Button-based UI for note management, fob replacement, and card replacement
+- **Barns Transfer:** Transfer vehicles to maintenance facility with or without physical fob (scan or select from list)
+- **Flexible Kiosk Windows:** Add notes and transfer vehicles either by scanning fobs or selecting from equipment list
+- **Clickable Kiosk Interface:** Button-based UI for all kiosk operations
 
 ## Technology Stack
 - **Backend:** Python 3.11, Flask, Flask-SocketIO
