@@ -33,6 +33,7 @@ class KioskGUI:
         self.offline_mode = False
         self.sync_in_progress = False
         self.pending_count = 0
+        self.barns_scan_mode = False
 
         # Offline mode indicator
         self.offline_indicator = None
@@ -572,6 +573,87 @@ class KioskGUI:
         """Transfer vehicle to The Barns"""
         from tkinter import Toplevel, Button, Label, Listbox, Scrollbar, SINGLE
         
+        # Ask if they have the fob
+        result = [None]
+        
+        def on_yes():
+            result[0] = True
+            dialog.destroy()
+        
+        def on_no():
+            result[0] = False
+            dialog.destroy()
+        
+        dialog = Toplevel(self.root)
+        dialog.title("Barns Transfer")
+        dialog.geometry("700x400")
+        dialog.configure(bg='white')
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        Label(dialog, text="🏭", font=font.Font(size=80),
+              bg='white', fg='#795548').pack(pady=(30, 20))
+        
+        Label(dialog, text="Do you have the vehicle fob with you?", 
+              font=font.Font(size=20, weight='bold'), bg='white').pack(pady=(0, 30))
+        
+        button_frame = tk.Frame(dialog, bg='white')
+        button_frame.pack(pady=20)
+        
+        Button(button_frame, text="Yes - I'll Scan It", command=on_yes,
+               font=font.Font(size=18), bg='#4CAF50', fg='white',
+               width=18, height=2).pack(side='left', padx=10)
+        
+        Button(button_frame, text="No - Select from List", command=on_no,
+               font=font.Font(size=18), bg='#2196F3', fg='white',
+               width=20, height=2).pack(side='left', padx=10)
+        
+        dialog.wait_window()
+        
+        if result[0] is True:
+            # They have the fob - show scan prompt
+            self.barns_scan_mode = True
+            self.clear_message_frame()
+            
+            icon_label = tk.Label(
+                self.message_frame,
+                text="🏭",
+                font=font.Font(size=120),
+                fg='#795548',
+                bg='black'
+            )
+            icon_label.pack(pady=(50, 30))
+            
+            msg_label = tk.Label(
+                self.message_frame,
+                text="Barns Transfer",
+                font=self.header_font,
+                fg='#795548',
+                bg='black'
+            )
+            msg_label.pack(pady=(0, 20))
+            
+            instructions_label = tk.Label(
+                self.message_frame,
+                text="Scan vehicle fob to transfer to Barns",
+                font=self.body_font,
+                fg='white',
+                bg='black'
+            )
+            instructions_label.pack()
+            
+            self.last_scan_time = datetime.now()
+            return
+            
+        elif result[0] is False:
+            # Continue with list selection (existing code below)
+            pass
+        else:
+            # Cancelled
+            self.show_welcome()
+            return
+        
+        # Rest of existing barns_transfer code stays here...
         conn = get_db()
         
         # Get "The Barns" user
@@ -660,23 +742,49 @@ class KioskGUI:
         vehicle = result[0]
         
         # Perform transfer
+        self.perform_barns_transfer(vehicle)
+
+
+    def perform_barns_transfer(self, vehicle):
+        """Actually perform the barns transfer for a given vehicle"""
+        from tkinter import Label
         conn = get_db()
         chicago_tz = pytz.timezone('America/Chicago')
         
+        # Get "The Barns" user
+        barns_user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', ('BARNS',)).fetchone()
+        
+        if not barns_user:
+            # Create The Barns user if doesn't exist
+            conn.execute('INSERT INTO users (card_id, first_name, last_name, is_active) VALUES (?, ?, ?, ?)',
+                        ('BARNS', 'The', 'Barns', 1))
+            conn.commit()
+            barns_user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', ('BARNS',)).fetchone()
+        
+        # Get full vehicle info with checkout status
+        vehicle_full = conn.execute('''
+            SELECT kf.*, c.id as checkout_id
+            FROM key_fobs kf
+            LEFT JOIN checkouts c ON kf.id = c.fob_id AND c.checked_in_at IS NULL
+            WHERE kf.id = ?
+        ''', (vehicle['id'],)).fetchone()
+        
         try:
             # If currently checked out, check it in first
-            if vehicle['checkout_id']:
+            if vehicle_full['checkout_id']:
                 conn.execute('UPDATE checkouts SET checked_in_at = ? WHERE id = ?',
-                            (datetime.now(chicago_tz), vehicle['checkout_id']))
+                            (datetime.now(chicago_tz), vehicle_full['checkout_id']))
             
             # Check out to The Barns
             conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
                         (barns_user['id'], vehicle['id'], self.kiosk_id, datetime.now(chicago_tz)))
             conn.commit()
             conn.close()
-            print("About to call notify server...")
+            
+            print("🔔 About to call notify_server...")
             self.notify_server()
-            print(" notify_server completed")
+            print("✅ notify_server completed")
+            
             # Show success
             self.clear_message_frame()
             
@@ -693,7 +801,6 @@ class KioskGUI:
         except Exception as e:
             conn.close()
             self.show_error(f"Transfer failed: {e}")
-
 
 
     def show_user_greeting(self, user):
@@ -1100,6 +1207,19 @@ class KioskGUI:
             conn.close()
             return
 
+        # Check if in Barns scan mode
+        if self.barns_scan_mode:
+            fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE AND is_active = 1', (fob_id,)).fetchone()
+            conn.close()
+            
+            if not fob:
+                self.show_error("Equipment not found")
+                return
+            
+            # Perform barns transfer with this fob
+            self.barns_scan_mode = False
+            self.perform_barns_transfer(fob)
+            return
 
         fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE AND is_active = 1', 
                           (fob_id,)).fetchone()
@@ -1693,41 +1813,177 @@ class KioskGUI:
         self.root.mainloop()
 
     def start_note_mode(self):
-        """Start note addition mode"""
-        print("DEBUG: Starting note mode")
-        self.note_mode = True
-        print(f"DEBUG: note_mode is now {self.note_mode}")
-        self.clear_message_frame()
+        """Start note addition mode - ask if they have the fob"""
+        from tkinter import Toplevel, Button, Label
         
-        icon_label = tk.Label(
-            self.message_frame,
-            text="📝",
-            font=font.Font(size=120),
-            fg='#FFC107',
-            bg='black'
-        )
-        icon_label.pack(pady=(50, 30))
+        result = [None]
         
-        msg_label = tk.Label(
-            self.message_frame,
-            text="Add Note to Equipment",
-            font=self.header_font,
-            fg='#FFC107',
-            bg='black'
-        )
-        msg_label.pack(pady=(0, 20))
+        def on_yes():
+            result[0] = True
+            dialog.destroy()
         
-        instructions_label = tk.Label(
-            self.message_frame,
-            text="Scan equipment to add note",
-            font=self.body_font,
-            fg='white',
-            bg='black'
-        )
-        instructions_label.pack()
+        def on_no():
+            result[0] = False
+            dialog.destroy()
         
-        # Set timeout
-        self.last_scan_time = datetime.now()
+        dialog = Toplevel(self.root)
+        dialog.title("Add Note")
+        dialog.geometry("700x400")
+        dialog.configure(bg='white')
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        Label(dialog, text="📝", font=font.Font(size=80),
+              bg='white', fg='#FFC107').pack(pady=(30, 20))
+        
+        Label(dialog, text="Do you have the equipment with you?", 
+              font=font.Font(size=20, weight='bold'), bg='white').pack(pady=(0, 30))
+        
+        button_frame = tk.Frame(dialog, bg='white')
+        button_frame.pack(pady=20)
+        
+        Button(button_frame, text="Yes - I'll Scan It", command=on_yes,
+               font=font.Font(size=18), bg='#4CAF50', fg='white',
+               width=18, height=2).pack(side='left', padx=10)
+        
+        Button(button_frame, text="No - Select from List", command=on_no,
+               font=font.Font(size=18), bg='#2196F3', fg='white',
+               width=20, height=2).pack(side='left', padx=10)
+        
+        dialog.wait_window()
+        
+        if result[0] is True:
+            # They have the fob - show scan prompt
+            self.note_mode = True
+            self.clear_message_frame()
+            
+            icon_label = tk.Label(
+                self.message_frame,
+                text="📝",
+                font=font.Font(size=120),
+                fg='#FFC107',
+                bg='black'
+            )
+            icon_label.pack(pady=(50, 30))
+            
+            msg_label = tk.Label(
+                self.message_frame,
+                text="Add Note to Equipment",
+                font=self.header_font,
+                fg='#FFC107',
+                bg='black'
+            )
+            msg_label.pack(pady=(0, 20))
+            
+            instructions_label = tk.Label(
+                self.message_frame,
+                text="Scan equipment to add note",
+                font=self.body_font,
+                fg='white',
+                bg='black'
+            )
+            instructions_label.pack()
+            
+            self.last_scan_time = datetime.now()
+            
+        elif result[0] is False:
+            # They don't have it - show selection list
+            self.show_equipment_list_for_note()
+        else:
+            # Cancelled
+            self.show_welcome()
+
+    def show_equipment_list_for_note(self):
+        """Show list of all equipment to select for adding note"""
+        from tkinter import Toplevel, Button, Label, Listbox, Scrollbar, SINGLE
+        
+        conn = get_db()
+        
+        # Get all active equipment and vehicles
+        all_items = conn.execute('''
+            SELECT * FROM key_fobs
+            WHERE is_active = 1
+            ORDER BY category, vehicle_name
+        ''').fetchall()
+        
+        conn.close()
+        
+        if not all_items:
+            self.show_error("No equipment found")
+            return
+        
+        # Create selection dialog
+        result = [None]
+        
+        def on_select():
+            selection = listbox.curselection()
+            if selection and selection[0] in item_indices:
+                actual_index = item_indices[selection[0]]
+                result[0] = all_items[actual_index]
+                dialog.destroy()
+        
+        dialog = Toplevel(self.root)
+        dialog.title("Add Note - Select Equipment")
+        dialog.geometry("900x850")
+        dialog.configure(bg='white')
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        Label(dialog, text="📝 Add Note to Equipment", 
+              font=font.Font(size=20, weight='bold'), bg='white').pack(pady=(20, 10))
+        
+        Label(dialog, text="Select the equipment:", 
+              font=font.Font(size=14), bg='white').pack(pady=(0, 20))
+        
+        # Listbox with scrollbar
+        list_frame = tk.Frame(dialog, bg='white')
+        list_frame.pack(fill='both', expand=True, padx=20, pady=(0, 20))
+        
+        scrollbar = Scrollbar(list_frame)
+        scrollbar.pack(side='right', fill='y')
+        
+        listbox = Listbox(list_frame, font=font.Font(size=14), height=25, 
+                         yscrollcommand=scrollbar.set, selectmode=SINGLE)
+        listbox.pack(side='left', fill='both', expand=True)
+        scrollbar.config(command=listbox.yview)
+        
+        # Populate list - group by category
+        # Track which listbox indices correspond to actual items
+        item_indices = {}  # Maps listbox index to all_items index
+        listbox_index = 0
+        
+        current_category = None
+        for i, item in enumerate(all_items):
+            if item['category'] != current_category:
+                current_category = item['category']
+                listbox.insert('end', f"--- {current_category} ---")
+                listbox.itemconfig(listbox_index, {'bg': '#E0E0E0', 'fg': '#666'})
+                listbox_index += 1
+            
+            listbox.insert('end', f"  {item['vehicle_name']}")
+            item_indices[listbox_index] = i  # Map this listbox position to the item
+            listbox_index += 1
+        
+        # Buttons
+        button_frame = tk.Frame(dialog, bg='white')
+        button_frame.pack(pady=20)
+        
+        Button(button_frame, text="Add Note", command=on_select,
+               font=font.Font(size=16), bg='#FFC107', fg='black',
+               width=15, height=2).pack(side='left', padx=10)
+        
+        Button(button_frame, text="Cancel", command=dialog.destroy,
+               font=font.Font(size=16), bg='#999', fg='white',
+               width=12, height=2).pack(side='left', padx=10)
+        
+        dialog.wait_window()
+        
+        if result[0]:
+            # Show note input for selected equipment
+            self.show_note_input(result[0])
+        else:
+            self.show_welcome()
+
     def show_note_input(self, fob):
         """Show text input for note or prompt to replace/delete existing"""
         from tkinter import Toplevel, Label, Text, Button
