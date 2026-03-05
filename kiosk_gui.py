@@ -34,6 +34,8 @@ class KioskGUI:
         self.sync_in_progress = False
         self.pending_count = 0
         self.barns_scan_mode = False
+        self.bulk_checkout_mode = False
+        self.bulk_items = []
 
         # Offline mode indicator
         self.offline_indicator = None
@@ -65,6 +67,12 @@ class KioskGUI:
         # Main message area - centered
         self.message_frame = tk.Frame(self.root, bg='black')
         self.message_frame.pack(expand=True)
+
+        # Hidden entry field to capture keyboard input
+        self.entry = tk.Entry(self.root)
+        self.entry.place(x=-100, y=-100)  # Hide it off-screen
+        self.entry.focus_set()
+        self.entry.bind('<Return>', lambda e: None)  # Prevent beep on Enter
         
         # Instructions at bottom (outside container)
         self.instructions_label = tk.Label(
@@ -477,7 +485,9 @@ class KioskGUI:
         """Display welcome screen"""
         self.clear_message_frame()
         self.current_user = None
-        
+        self.bulk_checkout_mode = False
+        self.bulk_items = []
+    
         # Big icon/emoji
         icon_label = tk.Label(
             self.message_frame,
@@ -487,7 +497,7 @@ class KioskGUI:
             bg='black'
         )
         icon_label.pack(pady=(50, 20))
-        
+    
         # Main instruction
         msg_label = tk.Label(
             self.message_frame,
@@ -497,14 +507,44 @@ class KioskGUI:
             bg='black'
         )
         msg_label.pack(pady=(0, 30))
-        
-        # Button container
-        button_frame = tk.Frame(self.message_frame, bg='black')
-        button_frame.pack(pady=20)
-        
+    
+        # Button container - First row
+        button_frame1 = tk.Frame(self.message_frame, bg='black')
+        button_frame1.pack(pady=10)
+    
+        # Bulk Checkout button (new!)
+        bulk_btn = tk.Button(
+            button_frame1,
+            text="🛒 Bulk Checkout",
+            font=font.Font(size=16, weight='bold'),
+            bg='#4CAF50',
+            fg='white',
+            width=18,
+            height=2,
+            command=self.start_bulk_checkout
+        )
+        bulk_btn.pack(side='left', padx=10)
+    
+        # Barns Transfer button
+        barns_btn = tk.Button(
+            button_frame1,
+            text="🔧 Barns Transfer",
+            font=font.Font(size=16, weight='bold'),
+            bg='#795548',
+            fg='white',
+            width=18,
+            height=2,
+            command=self.barns_transfer
+        )
+        barns_btn.pack(side='left', padx=10)
+    
+        # Button container - Second row
+        button_frame2 = tk.Frame(self.message_frame, bg='black')
+        button_frame2.pack(pady=10)
+    
         # Add Note button
         note_btn = tk.Button(
-            button_frame,
+            button_frame2,
             text="📝 Add Note",
             font=font.Font(size=16, weight='bold'),
             bg='#2196F3',
@@ -514,10 +554,10 @@ class KioskGUI:
             command=self.add_note
         )
         note_btn.pack(side='left', padx=10)
-        
+    
         # Replace Fob button
         fob_btn = tk.Button(
-            button_frame,
+            button_frame2,
             text="🔑 Replace Fob",
             font=font.Font(size=16, weight='bold'),
             bg='#FF9800',
@@ -527,10 +567,10 @@ class KioskGUI:
             command=self.replace_fob
         )
         fob_btn.pack(side='left', padx=10)
-        
+    
         # Replace Card button
         card_btn = tk.Button(
-            button_frame,
+            button_frame2,
             text="💳 Replace Card",
             font=font.Font(size=16, weight='bold'),
             bg='#9C27B0',
@@ -540,22 +580,249 @@ class KioskGUI:
             command=self.replace_card
         )
         card_btn.pack(side='left', padx=10)
+ 
+        # Instructions
+        self.entry.focus_set()
+        self.instructions_label.config(text="")
+        self.instructions_label.config(text="Press F11 for fullscreen")
         
-        # Barns Transfer button
-        barns_btn = tk.Button(
-            button_frame,
-            text="🏭 Barns Transfer",
+    
+    def start_bulk_checkout(self):
+        """Start bulk checkout mode"""
+        self.bulk_checkout_mode = True
+        self.bulk_items = []
+        self.clear_message_frame()
+        
+        icon_label = tk.Label(
+            self.message_frame,
+            text="🛒",
+            font=font.Font(size=120),
+            fg='#4CAF50',
+            bg='black'
+        )
+        icon_label.pack(pady=(50, 30))
+        
+        msg_label = tk.Label(
+            self.message_frame,
+            text="Bulk Checkout Mode\n\nScan your keycard",
+            font=self.header_font,
+            fg='#4CAF50',
+            bg='black',
+            justify='center'
+        )
+        msg_label.pack(pady=(0, 20))
+        
+        # Cancel button
+        cancel_btn = tk.Button(
+            self.message_frame,
+            text="❌ Cancel",
             font=font.Font(size=16, weight='bold'),
-            bg='#795548',
+            bg='#f44336',
             fg='white',
             width=15,
             height=2,
-            command=self.barns_transfer
+            command=self.cancel_bulk_checkout
         )
-        barns_btn.pack(side='left', padx=10)
-        # Instructions
-        self.instructions_label.config(text="Press F11 for fullscreen")
+        cancel_btn.pack(pady=20)
         
+        self.instructions_label.config(text="Scan your employee keycard to continue")
+        self.last_scan_time = datetime.now()
+
+    def show_bulk_scanning(self):
+        """Show bulk scanning screen with item list"""
+        self.clear_message_frame()
+        
+        # Header
+        header_label = tk.Label(
+            self.message_frame,
+            text=f"🛒 Bulk Checkout - {self.current_user['first_name']} {self.current_user['last_name']}",
+            font=font.Font(size=20, weight='bold'),
+            fg='#4CAF50',
+            bg='black'
+        )
+        header_label.pack(pady=(20, 10))
+        
+        instruction_label = tk.Label(
+            self.message_frame,
+            text="Scan items to check out",
+            font=self.body_font,
+            fg='white',
+            bg='black'
+        )
+        instruction_label.pack(pady=(0, 20))
+        
+        # Scrollable list frame
+        list_frame = tk.Frame(self.message_frame, bg='black')
+        list_frame.pack(pady=10, fill='both', expand=True)
+        
+        if self.bulk_items:
+            for item in self.bulk_items:
+                item_label = tk.Label(
+                    list_frame,
+                    text=f"✅ {item['vehicle_name']}",
+                    font=font.Font(size=16),
+                    fg='#4CAF50',
+                    bg='black',
+                    anchor='w'
+                )
+                item_label.pack(pady=5, padx=20, fill='x')
+        else:
+            placeholder_label = tk.Label(
+                list_frame,
+                text="(No items scanned yet)",
+                font=font.Font(size=16),
+                fg='#666',
+                bg='black'
+            )
+            placeholder_label.pack(pady=5)
+        
+        # Button container
+        button_frame = tk.Frame(self.message_frame, bg='black')
+        button_frame.pack(pady=20)
+        
+        # Done button
+        done_btn = tk.Button(
+            button_frame,
+            text="✅ Done",
+            font=font.Font(size=18, weight='bold'),
+            bg='#4CAF50',
+            fg='white',
+            width=12,
+            height=2,
+            command=self.complete_bulk_checkout
+        )
+        done_btn.pack(side='left', padx=10)
+        
+        # Cancel button
+        cancel_btn = tk.Button(
+            button_frame,
+            text="❌ Cancel",
+            font=font.Font(size=18, weight='bold'),
+            bg='#f44336',
+            fg='white',
+            width=12,
+            height=2,
+            command=self.cancel_bulk_checkout
+        )
+        cancel_btn.pack(side='left', padx=10)
+        
+        self.instructions_label.config(text=f"{len(self.bulk_items)} item(s) scanned • Timeout in 30 seconds")
+
+    def add_bulk_item(self, fob):
+        """Add item to bulk checkout list"""
+        # Check if already in list
+        if any(item['id'] == fob['id'] for item in self.bulk_items):
+            # Show brief "already scanned" message
+            self.clear_message_frame()
+            tk.Label(self.message_frame, text="⚠️", font=font.Font(size=80), 
+                  fg='#FF9800', bg='black').pack(pady=(50, 20))
+            tk.Label(self.message_frame, text=f"{fob['vehicle_name']}\nalready in list!", 
+                  font=self.header_font, fg='#FF9800', bg='black', justify='center').pack()
+            self.root.after(1500, self.show_bulk_scanning)
+            return
+        
+        # Add to list
+        self.bulk_items.append(dict(fob))
+        
+        # Show brief confirmation
+        self.clear_message_frame()
+        tk.Label(self.message_frame, text="✅", font=font.Font(size=80), 
+              fg='#4CAF50', bg='black').pack(pady=(50, 20))
+        tk.Label(self.message_frame, text=f"{fob['vehicle_name']}\nadded!", 
+              font=self.header_font, fg='#4CAF50', bg='black', justify='center').pack()
+        
+        # Return to scanning screen
+        self.root.after(1000, self.show_bulk_scanning)
+        self.last_scan_time = datetime.now()
+
+    def complete_bulk_checkout(self):
+        """Complete bulk checkout and check out all items"""
+        if not self.bulk_items:
+            self.show_error("No items to check out")
+            return
+        
+        chicago_tz = pytz.timezone('America/Chicago')
+        conn = get_db()
+        
+        checked_out_items = []
+        failed_items = []
+        
+        for fob in self.bulk_items:
+            try:
+                # Check if already checked out
+                existing = conn.execute('''
+                    SELECT c.*, u.first_name, u.last_name 
+                    FROM checkouts c
+                    JOIN users u ON c.user_id = u.id
+                    WHERE c.fob_id = ? AND c.checked_in_at IS NULL
+                ''', (fob['id'],)).fetchone()
+                
+                if existing:
+                    # Handoff transfer
+                    if existing['user_id'] != self.current_user['id']:
+                        conn.execute('UPDATE checkouts SET checked_in_at = ? WHERE id = ?',
+                                    (datetime.now(chicago_tz), existing['id']))
+                        conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
+                                    (self.current_user['id'], fob['id'], self.kiosk_id, datetime.now(chicago_tz)))
+                        checked_out_items.append(fob['vehicle_name'])
+                    # else: already checked out to this user, skip
+                else:
+                    # Normal checkout
+                    conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
+                                (self.current_user['id'], fob['id'], self.kiosk_id, datetime.now(chicago_tz)))
+                    checked_out_items.append(fob['vehicle_name'])
+                    
+            except Exception as e:
+                print(f"Failed to checkout {fob['vehicle_name']}: {e}")
+                failed_items.append(fob['vehicle_name'])
+        
+        conn.commit()
+        conn.close()
+        
+        # Notify server
+        try:
+            self.notify_server()
+        except:
+            pass
+        
+        # Show success screen
+        self.clear_message_frame()
+        
+        tk.Label(self.message_frame, text="✅", font=font.Font(size=100), 
+              fg='#4CAF50', bg='black').pack(pady=(30, 20))
+        
+        tk.Label(self.message_frame, text=f"Bulk Checkout Complete!", 
+              font=self.header_font, fg='#4CAF50', bg='black').pack(pady=(0, 20))
+        
+        tk.Label(self.message_frame, text=f"{len(checked_out_items)} item(s) checked out", 
+              font=self.body_font, fg='white', bg='black').pack()
+        
+        if checked_out_items:
+            items_frame = tk.Frame(self.message_frame, bg='black')
+            items_frame.pack(pady=10)
+            for item in checked_out_items[:5]:  # Show first 5
+                tk.Label(items_frame, text=f"• {item}", font=font.Font(size=14), 
+                      fg='white', bg='black').pack()
+            if len(checked_out_items) > 5:
+                tk.Label(items_frame, text=f"... and {len(checked_out_items) - 5} more", 
+                      font=font.Font(size=14), fg='#666', bg='black').pack()
+        
+        if failed_items:
+            tk.Label(self.message_frame, text=f"⚠️ {len(failed_items)} item(s) failed", 
+                  font=font.Font(size=14), fg='#FF9800', bg='black').pack(pady=(10, 0))
+        
+        # Reset and return to welcome
+        self.bulk_checkout_mode = False
+        self.bulk_items = []
+        self.current_user = None
+        self.root.after(4000, self.show_welcome)
+
+    def cancel_bulk_checkout(self):
+        """Cancel bulk checkout and return to welcome"""
+        self.bulk_checkout_mode = False
+        self.bulk_items = []
+        self.current_user = None
+        self.show_welcome()
     
     def add_note(self):
         """Button handler for adding note"""
@@ -1071,6 +1338,20 @@ class KioskGUI:
             # Return to welcome after 3 seconds
             self.root.after(3000, self.show_welcome)
             return
+            # **NEW: Check if in bulk checkout mode**
+            if self.bulk_checkout_mode and not self.current_user:
+                conn = get_db()
+                user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE AND is_active = 1', 
+                               (card_id,)).fetchone()
+                conn.close()
+        
+                if not user:
+                    self.show_error("Unknown card. Please register at the admin panel.")
+                    return
+        
+            self.current_user = dict(user)
+            self.show_bulk_scanning()
+            return
 
 
         # Check if there's a pending fob to check out
@@ -1205,6 +1486,18 @@ class KioskGUI:
             
             self.show_note_input(fob)
             conn.close()
+            return
+
+        # Check if in bulk checkout mode
+        if self.bulk_checkout_mode and self.current_user:
+            conn = get_db()
+            fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE AND is_active = 1', 
+                          (fob_id,)).fetchone()
+            conn.close()
+            if fob:
+                self.add_bulk_item(dict(fob))
+            else:
+                self.show_error("Unknown fob")
             return
 
         # Check if in Barns scan mode
