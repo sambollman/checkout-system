@@ -254,6 +254,72 @@
         body.dark-mode .filter-form {
             background: #2d2d2d;
         }
+        /* Tab Styles */
+        .tab-container {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .tab {
+            padding: 15px 30px;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #666;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            color: #333;
+            border-bottom-color: #ccc;
+        }
+
+        .tab.active {
+            color: #4CAF50;
+            border-bottom-color: #4CAF50;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+        /* Dark mode form styling */
+        body.dark-mode #addUserForm,
+        body.dark-mode #addFobForm,
+        body.dark-mode #exportForm {
+            background: #2d2d2d !important;
+            color: #ffffff;
+        }
+
+        body.dark-mode #addUserForm h3,
+        body.dark-mode #addFobForm h3,
+        body.dark-mode #exportForm h3 {
+            color: #ffffff;
+        }
+
+        body.dark-mode #addUserForm label,
+        body.dark-mode #addFobForm label,
+        body.dark-mode #exportForm label {
+            color: #ffffff;
+        }
+ 
+        body.dark-mode #addUserForm input,
+        body.dark-mode #addUserForm select,
+        body.dark-mode #addFobForm input,
+        body.dark-mode #addFobForm select,
+        body.dark-mode #exportForm input {
+            background: #1a1a1a;
+            color: #ffffff;
+            border: 1px solid #444;
+        }
     </style>
 </head>
 <body>
@@ -269,155 +335,153 @@
             <span class="slider"></span>
         </label>
     </div>
-    <div class="section">
-        <h2 id="users" class="section-header" onclick="toggleSection('users')">
-        Users
-        <span class="collapse-icon" id="usersIcon">▼</span>
-    </h2>
-    <div class="collapsible-content" id="usersContent"> 
-        <button onclick="showAddUserForm()" class="btn btn-success" style="margin-bottom: 15px;">+ Add New User</button>
-        
-        <div id="addUserForm" style="display: none; background: #f5f5f5; padding: 20px; margin-bottom: 20px; border-radius: 5px;">
-            <h3>Add New User</h3>
-            <form action="/admin/user/add" method="POST">
-                <label>Card ID: <input type="text" name="card_id" required style="margin: 10px; padding: 5px;"></label><br>
-                <label>First Name: <input type="text" name="first_name" required style="margin: 10px; padding: 5px;"></label><br>
-                <label>Last Name: <input type="text" name="last_name" required style="margin: 10px; padding: 5px;"></label><br>
-                <button type="submit" class="btn btn-success">Add User</button>
-                <button type="button" onclick="hideAddUserForm()" class="btn btn-danger">Cancel</button>
-            </form>
-        </div>
-        <table>
-            <tr>
-                <th>Card ID</th>
-                <th>Name</th>
-                <th>Registered</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
-            {% for user in users %}
-            <tr {% if not user.is_active %}class="inactive"{% endif %}>
-                <td>{{ user.card_id }}</td>
-                <td>{{ user.last_name }}, {{ user.first_name }}</td>
-                <td>{{ user.registered_at }}</td>
-                <td>
-                    {% if user.is_active %}
-                        Active
-                    {% else %}
-                        Inactive
-                    {% endif %}
-                </td>
-                <td>
-                    <a href="/admin/user/edit/{{ user.id }}#users" class="btn btn-success">Edit</a>
-                    <a href="/admin/user/replace/{{ user.id }}#users" class="btn" style="background: #FF9800; color: white;">Replace Card</a>
-                    {% if user.is_active %}
-                        <a href="/admin/user/deactivate/{{ user.id }}#users" class="btn btn-danger">Deactivate</a>
-                    {% else %}
-                        <a href="/admin/user/activate/{{ user.id }}#users" class="btn btn-success">Activate</a>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </table>
-    </div>
-    </div>
-    <div class="section">
-        <h2 id="fobs" class="section-header" onclick="toggleSection('fobs')">
-            Key Fobs / Vehicles
-            <span class="collapse-icon" id="fobsIcon">▼</span>
-        </h2>
-        <div class="collapsible-content" id="fobsContent">
-        <button onclick="showAddFobForm()" class="btn btn-success" style="margin-bottom: 15px;">+ Add New Key Fob</button>
-        
-        <div id="addFobForm" style="display: none; background: #f5f5f5; padding: 20px; margin-bottom: 20px; border-radius: 5px;">
-            <h3>Add New Key Fob</h3>
-            <form action="/admin/fob/add" method="POST">
-                <label>Fob ID: <input type="text" name="fob_id" required style="margin: 10px; padding: 5px;"></label><br>
-                <label>Name: <input type="text" name="vehicle_name" required style="margin: 10px; padding: 5px;"></label><br>
-                <label>Category: 
-                    <select name="category" style="margin: 10px; padding: 5px;" required>
-                        <option value="">-- Select Category --</option>
-                        <option value="Squad Cars">Squad Cars</option>
-                        <option value="Specialized Services Vehicles">Specialized Services Vehicles</option>
-                        <option value="CID Vehicles">CID Vehicles</option>
-                        <option value="Other Vehicles">Other Vehicles</option>
-                        <option value="Equipment">Equipment</option>
-                    </select>
-                </label><br>
-                <label>Location: <input type="text" name="location" value="Station" style="margin: 10px; padding: 5px;"></label><br>
-                <button type="submit" class="btn btn-success">Add Key Fob</button>
-                <button type="button" onclick="hideAddFobForm()" class="btn btn-danger">Cancel</button>
-            </form>
-        </div>
+    
+<!-- Tab Container -->
+<div class="tab-container">
+    <button class="tab active" data-category="Users">👥 Users</button>
+    <button class="tab" data-category="Key Fobs">🔑 Key Fobs</button>
+    <button class="tab" data-category="Recent Checkout History">📋 Recent History</button>
+    <button class="tab" data-category="Active Reservations">📅 Active Reservations</button>
+    <button class="tab" data-category="Past Reservations">📅 Past Reservations</button>
+</div>    
 
+
+
+<!-- Users Tab Content -->
+<div class="tab-content active" id="Users-content">
+    <button onclick="showAddUserForm()" class="btn btn-success" style="margin-bottom: 15px;">+ Add New User</button>
     
-        <table>
-            <tr>
-                <th>Fob ID</th>
-                <th>Name</th>
-		<th>Category</th>
-                <th>Location</th>
-                <th>Registered</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
-            {% for fob in fobs %}
-            <tr {% if not fob.is_active %}class="inactive"{% endif %}>
-                <td>{{ fob.fob_id }}</td>
-                <td>{{ fob.vehicle_name }}</td>
-		<td>{{ fob.category }}</td>
-                <td>{{ fob.location }}</td>
-                <td>{{ fob.registered_at }}</td>
-                <td>
-                    {% if fob.is_active %}
-                        Active
-                    {% else %}
-                        Inactive
-                    {% endif %}
-                </td>
-                <td>
-                    <a href="/admin/fob/edit/{{ fob.id }}" class="btn btn-success">Edit</a>
-                    <a href="/admin/fob/replace/{{ fob.id }}" class="btn" style="background: #FF9800; color: white;">Replace Fob</a>
-                    <a href="/admin/fob/reserve/{{ fob.id }}" class="btn" style="background: #2196F3; color: white;">Reserve</a>
-                    <a href="/admin/fob/barcode/{{ fob.id }}" class="btn" style="background: #9C27B0; color: white;">Barcode</a>
-                    {% if fob.note %}
-                        <a href="/admin/fob/note/delete/{{ fob.id }}" class="btn btn-danger" onclick="return confirm('Delete note?')">Clear Note</a>
-                    {% else %}
-                        <a href="/admin/fob/note/add/{{ fob.id }}" class="btn" style="background: #FFC107; color: black;">Add Note</a>
-                    {% endif %}
-                    {% if fob.is_active %}
-                        <a href="/admin/fob/deactivate/{{ fob.id }}#fobs" class="btn btn-danger">Deactivate</a>
-                    {% else %}
-                        <a href="/admin/fob/activate/{{ fob.id }}#fobs" class="btn btn-success">Activate</a>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </table>
+    <div id="addUserForm" style="display: none; background: #f5f5f5; padding: 20px; margin-bottom: 20px; border-radius: 5px;">
+        <h3>Add New User</h3>
+        <form action="/admin/user/add" method="POST">
+            <label>Card ID: <input type="text" name="card_id" required style="margin: 10px; padding: 5px;"></label><br>
+            <label>First Name: <input type="text" name="first_name" required style="margin: 10px; padding: 5px;"></label><br>
+            <label>Last Name: <input type="text" name="last_name" required style="margin: 10px; padding: 5px;"></label><br>
+            <button type="submit" class="btn btn-success">Add User</button>
+            <button type="button" onclick="hideAddUserForm()" class="btn btn-danger">Cancel</button>
+        </form>
     </div>
+    <table>
+        <tr>
+            <th>Card ID</th>
+            <th>Name</th>
+            <th>Registered</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+        {% for user in users %}
+        <tr {% if not user.is_active %}class="inactive"{% endif %}>
+            <td>{{ user.card_id }}</td>
+            <td>{{ user.last_name }}, {{ user.first_name }}</td>
+            <td>{{ user.registered_at }}</td>
+            <td>
+                {% if user.is_active %}
+                    Active
+                {% else %}
+                    Inactive
+                {% endif %}
+            </td>
+            <td>
+                <a href="/admin/user/edit/{{ user.id }}#users" class="btn btn-success">Edit</a>
+                <a href="/admin/user/replace/{{ user.id }}#users" class="btn" style="background: #FF9800; color: white;">Replace Card</a>
+                {% if user.is_active %}
+                    <a href="/admin/user/deactivate/{{ user.id }}#users" class="btn btn-danger">Deactivate</a>
+                {% else %}
+                    <a href="/admin/user/activate/{{ user.id }}#users" class="btn btn-success">Activate</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+<!-- Key Fobs Tab Content -->
+<div class="tab-content" id="Key Fobs-content">
+    <button onclick="showAddFobForm()" class="btn btn-success" style="margin-bottom: 15px;">+ Add New Key Fob</button>
+
+    <div id="addFobForm" style="display: none; background: #f5f5f5; padding: 20px; margin-bottom: 20px; border-radius: 5px;">
+        <h3>Add New Key Fob</h3>
+        <form action="/admin/fob/add" method="POST">
+            <label>Fob ID: <input type="text" name="fob_id" required style="margin: 10px; padding: 5px;"></label><br>
+            <label>Name: <input type="text" name="vehicle_name" required style="margin: 10px; padding: 5px;"></label><br>
+            <label>Category:
+                <select name="category" style="margin: 10px; padding: 5px;" required>
+                    <option value="">-- Select Category --</option>
+                    <option value="Squad Cars">Squad Cars</option>
+                    <option value="Specialized Services Vehicles">Specialized Services Vehicles</option>
+                    <option value="CID Vehicles">CID Vehicles</option>
+                    <option value="Other Vehicles">Other Vehicles</option>
+                    <option value="Equipment">Equipment</option>
+                </select>
+            </label><br>
+            <label>Location: <input type="text" name="location" value="Station" style="margin: 10px; padding: 5px;"></label><br>
+            <button type="submit" class="btn btn-success">Add Key Fob</button>
+            <button type="button" onclick="hideAddFobForm()" class="btn btn-danger">Cancel</button>
+        </form>
     </div>
-<div class="section">    
-<h2 id="history" class="section-header" onclick="toggleSection('history')">
-    Recent Checkout History
-    <span class="collapse-icon" id="historyIcon">▼</span>
-</h2>
-<div class="collapsible-content" id="historyContent">
-    
+
+    <table>
+        <tr>
+            <th>Fob ID</th>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Location</th>
+            <th>Registered</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+        {% for fob in fobs %}
+        <tr {% if not fob.is_active %}class="inactive"{% endif %}>
+            <td>{{ fob.fob_id }}</td>
+            <td>{{ fob.vehicle_name }}</td>
+            <td>{{ fob.category }}</td>
+            <td>{{ fob.location }}</td>
+            <td>{{ fob.registered_at }}</td>
+            <td>
+                {% if fob.is_active %}
+                    Active
+                {% else %}
+                    Inactive
+                {% endif %}
+            </td>
+             <td>
+                <a href="/admin/fob/edit/{{ fob.id }}" class="btn btn-success">Edit</a>
+                <a href="/admin/fob/replace/{{ fob.id }}" class="btn" style="background: #FF9800; color: white;">Replace Fob</a>
+                <a href="/admin/fob/reserve/{{ fob.id }}" class="btn" style="background: #2196F3; color: white;">Reserve</a>
+                <a href="/admin/fob/barcode/{{ fob.id }}" class="btn" style="background: #9C27B0; color: white;">Barcode</a>
+                {% if fob.note %}
+                    <a href="/admin/fob/note/delete/{{ fob.id }}" class="btn btn-danger" onclick="return confirm('Delete note?')">Clear Note</a>
+                {% else %}
+                    <a href="/admin/fob/note/add/{{ fob.id }}" class="btn" style="background: #FFC107; color: black;">Add Note</a>
+                {% endif %}
+                {% if fob.is_active %}
+                    <a href="/admin/fob/deactivate/{{ fob.id }}#fobs" class="btn btn-danger">Deactivate</a>
+                {% else %}
+                    <a href="/admin/fob/activate/{{ fob.id }}#fobs" class="btn btn-success">Activate</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+<!-- Recent Checkout History Tab Content -->
+<div class="tab-content" id="Recent Checkout History-content">
     <!-- Filter Form -->
-    <div class="filter-form" style="padding: 20px; margin: 20px 0; border-radius: 5px;"> 
+    <div class="filter-form" style="padding: 20px; margin: 20px 0; border-radius: 5px;">
         <form method="GET" action="/admin#history" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: end;">
             <div>
                 <label style="display: block; font-weight: bold; margin-bottom: 5px;">Start Date:</label>
-                <input type="date" name="hist_start_date" value="{{ request.args.get('hist_start_date', '') }}" 
+                <input type="date" name="hist_start_date" value="{{ request.args.get('hist_start_date', '') }}"
                        style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
             </div>
-            
+
             <div>
                 <label style="display: block; font-weight: bold; margin-bottom: 5px;">End Date:</label>
-                <input type="date" name="hist_end_date" value="{{ request.args.get('hist_end_date', '') }}" 
+                <input type="date" name="hist_end_date" value="{{ request.args.get('hist_end_date', '') }}"
                        style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
             </div>
-            
+
             <div>
                 <label style="display: block; font-weight: bold; margin-bottom: 5px;">Vehicle/Equipment:</label>
                 <select name="hist_fob_id" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
@@ -429,7 +493,7 @@
                     {% endfor %}
                 </select>
             </div>
-            
+
             <div>
                 <label style="display: block; font-weight: bold; margin-bottom: 5px;">User:</label>
                 <select name="hist_user_id" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
@@ -441,7 +505,7 @@
                     {% endfor %}
                 </select>
             </div>
-            
+
             <div>
                 <label style="display: block; font-weight: bold; margin-bottom: 5px;">Limit:</label>
                 <select name="hist_limit" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
@@ -452,7 +516,7 @@
                     <option value="all" {% if request.args.get('hist_limit') == 'all' %}selected{% endif %}>All</option>
                 </select>
             </div>
-            
+
             <div>
                 <button type="button" onclick="filterToday()" class="btn" style="background: #2196F3; color: white; margin-left: 5px;">📅 Today</button>
                 <button type="submit" class="btn btn-success">Filter</button>
@@ -460,12 +524,11 @@
             </div>
         </form>
     </div>
-    
-    <a href="/admin/export/history{% if request.args %}?{{ request.query_string.decode() }}{% endif %}" 
-       class="btn btn-success" style="margin-bottom: 15px;">📥 Export Filtered Results (CSV)</a>
-    
-    <div style="overflow-x: auto;">
 
+    <a href="/admin/export/history{% if request.args %}?{{ request.query_string.decode() }}{% endif %}"
+       class="btn btn-success" style="margin-bottom: 15px;">📥 Export Filtered Results (CSV)</a>
+
+    <div style="overflow-x: auto;">
         <table>
             <tr>
                 <th>User</th>
@@ -491,14 +554,10 @@
             {% endfor %}
         </table>
     </div>
-    </div>
-    </div>
-    <div class="section">
-    <h2 id="reservations" class="section-header" onclick="toggleSection('reservations')">
-        Active Reservations
-        <span class="collapse-icon" id="reservationsIcon">▼</span>
-    </h2>
-    <div class="collapsible-content" id="reservationsContent">
+</div>
+
+<!-- Active Reservations Tab Content -->
+<div class="tab-content" id="Active Reservations-content">
     <div style="overflow-x: auto;">
         <table>
             <thead>
@@ -530,7 +589,7 @@
                     <td>{{ res.reason or '—' }}</td>
                     <td>{{ res.created_by }}</td>
                     <td>
-                        <a href="/admin/reservation/delete/{{ res.id }}#reservations" class="btn btn-danger" 
+                        <a href="/admin/reservation/delete/{{ res.id }}#reservations" class="btn btn-danger"
                            onclick="return confirm('Delete this reservation?')">Delete</a>
                     </td>
                 </tr>
@@ -538,29 +597,25 @@
             </tbody>
         </table>
     </div>
-    </div>
-    </div>
-<div class="section">
-<h2 id="past-reservations" class="section-header" onclick="toggleSection('pastReservations')">
-        Past Reservations
-        <span class="collapse-icon" id="pastReservationsIcon">▼</span>
-    </h2>
-    <div class="collapsible-content" id="pastReservationsContent">
+</div>
+
+<!-- Past Reservations Tab Content -->
+<div class="tab-content" id="Past Reservations-content">
     <!-- Filter Form -->
     <div class="filter-form" style="padding: 20px; margin: 20px 0; border-radius: 5px;">
         <form method="GET" action="/admin#past-reservations" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: end;">
             <div>
                 <label style="display: block; font-weight: bold; margin-bottom: 5px;">Start Date:</label>
-                <input type="date" name="past_start_date" value="{{ request.args.get('past_start_date', '') }}" 
+                <input type="date" name="past_start_date" value="{{ request.args.get('past_start_date', '') }}"
                        style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
             </div>
-            
+
             <div>
                 <label style="display: block; font-weight: bold; margin-bottom: 5px;">End Date:</label>
-                <input type="date" name="past_end_date" value="{{ request.args.get('past_end_date', '') }}" 
+                <input type="date" name="past_end_date" value="{{ request.args.get('past_end_date', '') }}"
                        style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
             </div>
-            
+
             <div>
                 <label style="display: block; font-weight: bold; margin-bottom: 5px;">Vehicle/Equipment:</label>
                 <select name="past_fob_id" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
@@ -572,7 +627,7 @@
                     {% endfor %}
                 </select>
             </div>
-            
+
             <div>
                 <label style="display: block; font-weight: bold; margin-bottom: 5px;">Reserved For:</label>
                 <select name="past_user_id" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
@@ -584,7 +639,7 @@
                     {% endfor %}
                 </select>
             </div>
-            
+
             <div>
                 <label style="display: block; font-weight: bold; margin-bottom: 5px;">Limit:</label>
                 <select name="past_limit" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
@@ -594,7 +649,7 @@
                     <option value="all" {% if request.args.get('past_limit') == 'all' %}selected{% endif %}>All</option>
                 </select>
             </div>
-            
+
             <div>
                 <button type="submit" class="btn btn-success">Filter</button>
                 <a href="/admin#past-reservations" class="btn" style="background: #666; color: white; text-decoration: none; margin-left: 5px;">Clear</a>
@@ -602,8 +657,7 @@
         </form>
     </div>
 
-
-    <div style="overflow-x: auto;">
+     <div style="overflow-x: auto;">
         <table>
             <thead>
                 <tr>
@@ -637,7 +691,8 @@
             </tbody>
         </table>
     </div>
-    </div>
+</div>
+
 </body>
 </html>
 
@@ -739,6 +794,48 @@
             }
         });
     </script>
+    
+    <script>
+    // Tab switching functionality
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            const category = this.getAttribute('data-category');
+            switchToTab(category);
+            
+            // Save preference
+            localStorage.setItem('admin_preferred_tab', category);
+        });
+    });
+    
+    function switchToTab(category) {
+        // Update tab buttons
+        document.querySelectorAll('.tab').forEach(t => {
+            t.classList.remove('active');
+        });
+        
+        const tabButton = document.querySelector(`.tab[data-category="${category}"]`);
+        if (tabButton) {
+            tabButton.classList.add('active');
+        }
+        
+        // Update content
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        
+        const tabContent = document.getElementById(`${category}-content`);
+        if (tabContent) {
+            tabContent.classList.add('active');
+        }
+    }
+    
+    // Restore preferred tab on load
+    window.addEventListener('load', () => {
+        const preferredTab = localStorage.getItem('admin_preferred_tab') || 'Users';
+        switchToTab(preferredTab);
+    });
+</script>
+
 
 </body>
 </html>
