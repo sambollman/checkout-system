@@ -84,9 +84,34 @@ def index():
     '''
     
     all_keys = conn.execute(query).fetchall()
-    # Get notes
-    notes_query = 'SELECT * FROM notes'
-    notes = conn.execute(notes_query).fetchall()
+
+    # Get active reservations (moved up to get chicago_tz)
+    chicago_tz = pytz.timezone('America/Chicago')
+    now = datetime.now(chicago_tz)
+    
+    # Get notes and delete expired ones
+    all_notes = conn.execute("SELECT * FROM notes").fetchall()
+    notes = []
+    expired_note_ids = []
+    
+    for note in all_notes:
+        if note['expires_at']:
+            try:
+                expires = datetime.fromisoformat(note['expires_at'])
+                if expires > now:
+                    notes.append(note)
+                else:
+                    expired_note_ids.append(note['id'])
+            except:
+                notes.append(note)
+        else:
+            notes.append(note)
+    
+    # Delete expired notes from database
+    if expired_note_ids:
+        placeholders = ','.join('?' * len(expired_note_ids))
+        conn.execute(f'DELETE FROM notes WHERE id IN ({placeholders})', expired_note_ids)
+        conn.commit()
     
     # Create note map
     note_map = {}
@@ -94,10 +119,6 @@ def index():
         note_map[note['fob_id']] = note
 
 
-    # Get active reservations
-    chicago_tz = pytz.timezone('America/Chicago')
-    now = datetime.now(chicago_tz)
-    
     reservations_query = '''
         SELECT r.*, u.first_name, u.last_name, kf.id as fob_table_id
         FROM reservations r
@@ -213,9 +234,22 @@ def api_status():
     
     all_keys = conn.execute(query).fetchall()
     
-    # Get notes
-    notes_query = 'SELECT * FROM notes'
-    notes = conn.execute(notes_query).fetchall()
+    chicago_tz = pytz.timezone('America/Chicago')
+    now = datetime.now(chicago_tz)
+    
+    # Get notes and filter expired ones
+    all_notes = conn.execute("SELECT * FROM notes").fetchall()
+    notes = []
+    for note in all_notes:
+        if note['expires_at']:
+            try:
+                expires = datetime.fromisoformat(note['expires_at'])
+                if expires > now:
+                    notes.append(note)
+            except:
+                notes.append(note)
+        else:
+            notes.append(note)
     
     # Create note map
     note_map = {}
@@ -224,8 +258,6 @@ def api_status():
 
 
     # Get active reservations
-    chicago_tz = pytz.timezone('America/Chicago')
-    now = datetime.now(chicago_tz)
     
     reservations_query = '''
         SELECT r.*, u.first_name, u.last_name, kf.id as fob_table_id
@@ -384,10 +416,13 @@ def admin_dashboard():
     
     # Get all key fobs
     fobs_raw = conn.execute('SELECT * FROM key_fobs').fetchall()
-    # Get notes for fobs
-    notes = conn.execute('SELECT * FROM notes').fetchall()
+
+    # Get ALL notes for admin (including expired)
+    now = datetime.now(chicago_tz)
+    all_notes = conn.execute('SELECT * FROM notes').fetchall()
+
     note_map = {}
-    for note in notes:
+    for note in all_notes:
         note_map[note['fob_id']] = note
     # Natural sort by vehicle_name
     import re
@@ -1035,6 +1070,68 @@ def delete_note(fob_id):
     conn.close()
     
     return redirect(url_for('admin_dashboard') + '#fobs')
+
+@app.route('/admin/fob/note/edit/<int:fob_id>', methods=['GET', 'POST'])
+def edit_note(fob_id):
+    """Edit note and expiration for fob"""
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    
+    conn = get_db()
+    fob = conn.execute('SELECT * FROM key_fobs WHERE id = ?', (fob_id,)).fetchone()
+    note = conn.execute('SELECT * FROM notes WHERE fob_id = ?', (fob_id,)).fetchone()
+    
+    if request.method == 'POST':
+        note_text = request.form.get('note_text')
+        expires_at = request.form.get('expires_at')  # Optional
+        created_by = session.get('username', 'admin')
+        
+        chicago_tz = pytz.timezone('America/Chicago')
+        
+        # Parse expiration if provided
+        expiration_iso = None
+        if expires_at:
+            try:
+                # Parse datetime string (format: YYYY-MM-DDTHH:MM from HTML datetime-local input)
+                dt = datetime.fromisoformat(expires_at)
+                dt_aware = chicago_tz.localize(dt)
+                expiration_iso = dt_aware.isoformat()
+            except:
+                pass
+        
+        # Delete existing note
+        conn.execute('DELETE FROM notes WHERE fob_id = ?', (fob_id,))
+        
+        # Insert updated note
+        conn.execute('''
+            INSERT INTO notes (fob_id, note_text, created_at, created_by, expires_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (fob_id, note_text, datetime.now(chicago_tz).isoformat(), created_by, expiration_iso))
+        
+        conn.commit()
+        conn.close()
+        return redirect(url_for('admin_dashboard') + '#fobs')
+    
+    conn.close()
+    return render_template('edit_note.html', fob=fob, note=note)
+
+@app.route('/admin/fob/note/expire/<int:fob_id>')
+def expire_note(fob_id):
+    """Expire note immediately by setting expires_at to now"""
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    
+    conn = get_db()
+    chicago_tz = pytz.timezone('America/Chicago')
+    now = datetime.now(chicago_tz).isoformat()
+    
+    # Update the note's expiration to now
+    conn.execute('UPDATE notes SET expires_at = ? WHERE fob_id = ?', (now, fob_id))
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('admin_dashboard') + '#fobs')
+
 
 # Schedule database compacting weekly
 from threading import Thread

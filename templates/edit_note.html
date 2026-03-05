@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit Note</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .form-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+        }
+        .info {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #FFC107;
+        }
+        label {
+            display: block;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            height: 100px;
+            resize: vertical;
+        }
+        input[type="datetime-local"] {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .save-btn {
+            background-color: #FFC107;
+            color: black;
+        }
+        .cancel-btn {
+            background-color: #666;
+            color: white;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>Edit Note</h1>
+
+        <div class="info">
+            <strong>Equipment:</strong> {{ fob.vehicle_name }}<br>
+            <strong>Category:</strong> {{ fob.category }}
+        </div>
+
+        <form method="POST">
+            <label>Note:</label>
+            <textarea name="note_text" required placeholder="e.g., Computer not working, AED needs servicing">{{ note.note_text if note else '' }}</textarea>
+
+            <label>Expiration (optional):</label>
+            <input type="datetime-local" name="expires_at" 
+                   value="{% if note and note.expires_at %}{{ note.expires_at[:16] }}{% endif %}">
+            <div class="help-text">Leave blank for no expiration. Note will be hidden after this date/time.</div>
+
+            <button type="submit" class="save-btn">Save Changes</button>
+            <a href="/admin#fobs"><button type="button" class="cancel-btn">Cancel</button></a>
+        </form>
+    </div>
+</body>
+</html>

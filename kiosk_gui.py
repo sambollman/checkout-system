@@ -2279,7 +2279,8 @@ class KioskGUI:
 
     def show_note_input(self, fob):
         """Show text input for note or prompt to replace/delete existing"""
-        from tkinter import Toplevel, Label, Text, Button
+        from tkinter import Toplevel, Label, Text, Button, Checkbutton, BooleanVar, Frame, Entry
+        from datetime import datetime, timedelta
         
         # Check if note already exists
         conn = get_db()
@@ -2317,7 +2318,15 @@ class KioskGUI:
             
             Label(dialog, text=f'"{existing_note["note_text"]}"', 
                   font=font.Font(size=16), bg='white', fg='#666', 
-                  wraplength=600, justify='center').pack(pady=(0, 30))
+                  wraplength=600, justify='center').pack(pady=(0, 10))
+            
+            # Show expiration if set
+            if existing_note['expires_at']:
+                Label(dialog, text=f"Expires: {existing_note['expires_at']}", 
+                      font=font.Font(size=14), bg='white', fg='#FF9800').pack(pady=(0, 20))
+            else:
+                Label(dialog, text="No expiration set", 
+                      font=font.Font(size=14), bg='white', fg='#666').pack(pady=(0, 20))
             
             Label(dialog, text="What would you like to do?", 
                   font=font.Font(size=18), bg='white').pack(pady=(0, 20))
@@ -2371,19 +2380,49 @@ class KioskGUI:
                 return
         
         # Show text input (either new note or replacing existing)
-        result = [None]
+        result = {'note': None, 'expires_at': None}
         
         def on_submit():
-            result[0] = text_widget.get("1.0", "end-1c").strip()
+            note_text = text_widget.get("1.0", "end-1c").strip()
+            if not note_text:
+                return
+            
+            result['note'] = note_text
+            
+            # Check if expiration is set
+            if has_expiration.get():
+                try:
+                    # Parse date and time
+                    date_str = date_entry.get().strip()
+                    time_str = time_entry.get().strip()
+                    
+                    if date_str and time_str:
+                        # Combine date and time
+                        chicago_tz = pytz.timezone('America/Chicago')
+                        dt_str = f"{date_str} {time_str}"
+                        dt = datetime.strptime(dt_str, '%Y-%m-%d %H:%M')
+                        dt_aware = chicago_tz.localize(dt)
+                        result['expires_at'] = dt_aware.isoformat()
+                except Exception as e:
+                    print(f"Error parsing expiration: {e}")
+                    # Continue without expiration if parsing fails
+            
             dialog.destroy()
         
         def on_cancel():
-            result[0] = None
+            result['note'] = None
             dialog.destroy()
+        
+        def toggle_expiration():
+            """Show/hide expiration fields"""
+            if has_expiration.get():
+                expiration_frame.pack(pady=10, before=button_frame)
+            else:
+                expiration_frame.pack_forget()
         
         dialog = Toplevel(self.root)
         dialog.title("Add Note")
-        dialog.geometry("700x500")
+        dialog.geometry("700x650")
         dialog.configure(bg='white')
         dialog.transient(self.root)
         dialog.grab_set()
@@ -2408,6 +2447,48 @@ class KioskGUI:
         
         text_widget.focus()
         
+        # Expiration checkbox
+        has_expiration = BooleanVar(value=False)
+        checkbox = Checkbutton(dialog, text="⏰ Set Expiration", 
+                              variable=has_expiration, command=toggle_expiration,
+                              font=font.Font(size=14), bg='white')
+        checkbox.pack(pady=10)
+        
+        # Expiration input frame (hidden by default)
+        expiration_frame = Frame(dialog, bg='white')
+        
+        Label(expiration_frame, text="Date (YYYY-MM-DD):", 
+              font=font.Font(size=12), bg='white').pack(side='left', padx=5)
+        
+        # Default to tomorrow
+        chicago_tz = pytz.timezone('America/Chicago')
+        tomorrow = datetime.now(chicago_tz) + timedelta(days=1)
+        
+        date_entry = Entry(expiration_frame, font=font.Font(size=14), width=12)
+        date_entry.insert(0, tomorrow.strftime('%Y-%m-%d'))
+        date_entry.pack(side='left', padx=5)
+        
+        Label(expiration_frame, text="Time (HH:MM):", 
+              font=font.Font(size=12), bg='white').pack(side='left', padx=5)
+        
+        time_entry = Entry(expiration_frame, font=font.Font(size=14), width=8)
+        time_entry.insert(0, "17:00")  # Default to 5 PM
+        time_entry.pack(side='left', padx=5)
+        
+        # Pre-fill expiration if replacing and has expiration
+        if existing_note and existing_note['expires_at']:
+            has_expiration.set(True)
+            try:
+                exp_dt = datetime.fromisoformat(existing_note['expires_at'])
+                date_entry.delete(0, 'end')
+                date_entry.insert(0, exp_dt.strftime('%Y-%m-%d'))
+                time_entry.delete(0, 'end')
+                time_entry.insert(0, exp_dt.strftime('%H:%M'))
+                expiration_frame.pack(pady=10)
+            except:
+                pass
+        
+        # Buttons
         button_frame = tk.Frame(dialog, bg='white')
         button_frame.pack(pady=20)
         
@@ -2421,7 +2502,7 @@ class KioskGUI:
         
         dialog.wait_window()
         
-        if result[0]:
+        if result['note']:
             # Save note
             chicago_tz = pytz.timezone('America/Chicago')
             conn = get_db()
@@ -2431,9 +2512,9 @@ class KioskGUI:
             
             # Insert new note
             conn.execute('''
-                INSERT INTO notes (fob_id, note_text, created_at, created_by)
-                VALUES (?, ?, ?, ?)
-            ''', (fob['id'], result[0], datetime.now(chicago_tz).isoformat(), 'kiosk'))
+                INSERT INTO notes (fob_id, note_text, created_at, created_by, expires_at)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (fob['id'], result['note'], datetime.now(chicago_tz).isoformat(), 'kiosk', result['expires_at']))
             
             conn.commit()
             conn.close()
@@ -2455,6 +2536,7 @@ class KioskGUI:
             self.show_welcome()
         
         self.note_mode = False
+
 
 if __name__ == '__main__':
     kiosk = KioskGUI()

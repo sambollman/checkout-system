@@ -426,6 +426,7 @@
             <th>Name</th>
             <th>Category</th>
             <th>Location</th>
+            <th>Notes</th>
             <th>Registered</th>
             <th>Status</th>
             <th>Actions</th>
@@ -436,7 +437,28 @@
             <td>{{ fob.vehicle_name }}</td>
             <td>{{ fob.category }}</td>
             <td>{{ fob.location }}</td>
+            <td>
+                {% if fob.note %}
+                    <div style="background: #FFF3CD; padding: 5px; border-left: 3px solid #FFC107;">
+                        <strong>{{ fob.note.note_text[:50] }}{% if fob.note.note_text|length > 50 %}...{% endif %}</strong><br>
+                        {% if fob.note.expires_at %}
+                            <small style="color: #FF9800;">⏰ Expires: {{ fob.note.expires_at }}</small>
+                        {% else %}
+                            <small style="color: #666;">No expiration</small>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <span style="color: #999;">—</span>
+                {% endif %}
+            </td>
             <td>{{ fob.registered_at }}</td>
+            <td>
+                {% if fob.is_active %}
+                    Active
+                {% else %}
+                    Inactive
+                {% endif %}
+            </td>
             <td>
                 {% if fob.is_active %}
                     Active
@@ -450,7 +472,11 @@
                 <a href="/admin/fob/reserve/{{ fob.id }}" class="btn" style="background: #2196F3; color: white;">Reserve</a>
                 <a href="/admin/fob/barcode/{{ fob.id }}" class="btn" style="background: #9C27B0; color: white;">Barcode</a>
                 {% if fob.note %}
-                    <a href="/admin/fob/note/delete/{{ fob.id }}" class="btn btn-danger" onclick="return confirm('Delete note?')">Clear Note</a>
+                    <a href="/admin/fob/note/edit/{{ fob.id }}" class="btn" style="background: #FFC107; color: black;">Edit Note</a>
+                    {% if fob.note.expires_at %}
+                        <a href="/admin/fob/note/expire/{{ fob.id }}" class="btn" style="background: #FF9800; color: white;" onclick="return confirm('Expire this note now?')">Expire Now</a>
+                    {% endif %}
+                    <a href="/admin/fob/note/delete/{{ fob.id }}" class="btn btn-danger" onclick="return confirm('Delete note?')">Delete Note</a>
                 {% else %}
                     <a href="/admin/fob/note/add/{{ fob.id }}" class="btn" style="background: #FFC107; color: black;">Add Note</a>
                 {% endif %}
