@@ -376,7 +376,7 @@ body {
     <div class="tab-container">
         <button class="tab active" data-category="Squad Cars">🚓 Squad Cars</button>
         <button class="tab" data-category="CID Vehicles">🚔 CID Vehicles</button>
-        <button class="tab" data-category="CSO Vehicles">🚙 CSO Vehicles</button>
+        <button class="tab" data-category="Specialized Services Vehicles">🚙 Specialized Services Vehicles</button>
         <button class="tab" data-category="Other Vehicles">🚗 Other Vehicles</button>
         <button class="tab" data-category="Equipment">🔧 Equipment</button>
     </div>
@@ -422,10 +422,10 @@ body {
     </div>
 </div>
 
-<!-- CSO Vehicles Tab -->
-<div class="tab-content" id="CSO Vehicles-content">
+<!-- Specialized Services Vehicles Tab -->
+<div class="tab-content" id="Specialized Services Vehicles-content">
     <div class="grid">
-        {% for key in cso_vehicles %}
+        {% for key in specialized_vehicles %}
         <div class="key-card {% if key.checkout_id %}checked-out{% else %}available{% endif %}">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
@@ -656,7 +656,7 @@ body {
         function updateDisplay(data) {
             // Update each category tab
             updateSection('Squad Cars', data.squad_cars);
-            updateSection('CSO Vehicles', data.cso_vehicles);
+            updateSection('Specialized Services Vehicles', data.specialized_vehicles);
             updateSection('CID Vehicles', data.cid_vehicles);
             updateSection('Other Vehicles', data.other_vehicles);
             updateSection('Equipment', data.equipment);

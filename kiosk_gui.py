@@ -1255,7 +1255,7 @@ class KioskGUI:
             
             # Dropdown for category
             category_var = tk.StringVar(value="Squad Cars")
-            categories = ["Squad Cars", "CSO Vehicles", "CID Vehicles", "Other Vehicles", "Equipment"]
+            categories = ["Squad Cars", "Specialized Services Vehicles", "CID Vehicles", "Other Vehicles", "Equipment"]
             
             dropdown = ttk.Combobox(dialog, textvariable=category_var, values=categories, 
                                    font=font.Font(size=16), state='readonly', width=20)

@@ -171,7 +171,7 @@ def index():
     # Group by category with natural sorting
     squad_cars = sorted([k for k in formatted_keys if k['category'] == 'Squad Cars'], 
                        key=natural_sort_key)
-    cso_vehicles = sorted([k for k in formatted_keys if k['category'] == 'CSO Vehicles'], 
+    specialized_vehicles = sorted([k for k in formatted_keys if k['category'] == 'Specialized Services Vehicles'],
                          key=natural_sort_key)
     cid_vehicles = sorted([k for k in formatted_keys if k['category'] == 'CID Vehicles'], 
                          key=natural_sort_key)
@@ -182,7 +182,7 @@ def index():
     
     return render_template('index.html', 
                       squad_cars=squad_cars,
-                      cso_vehicles=cso_vehicles, 
+                      specialized_vehicles=specialized_vehicles,
                       cid_vehicles=cid_vehicles,
                       other_vehicles=other_vehicles,
                       equipment=equipment)
@@ -294,7 +294,7 @@ def api_status():
     
     squad_cars = sorted([k for k in formatted_keys if k['category'] == 'Squad Cars'], 
                        key=natural_sort_key)
-    cso_vehicles = sorted([k for k in formatted_keys if k['category'] == 'CSO Vehicles'], 
+    specialized_vehicles = sorted([k for k in formatted_keys if k['category'] == 'Specialized Services Vehicles'],
                          key=natural_sort_key)
     cid_vehicles = sorted([k for k in formatted_keys if k['category'] == 'CID Vehicles'], 
                          key=natural_sort_key)
@@ -305,7 +305,7 @@ def api_status():
     
     return {
     'squad_cars': squad_cars,
-    'cso_vehicles': cso_vehicles,
+    'specialized_vehicles': specialized_vehicles,
     'cid_vehicles': cid_vehicles,
     'other_vehicles': other_vehicles,
     'equipment': equipment
