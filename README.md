@@ -228,6 +228,86 @@ Each kiosk configured with:
 - `KIOSK_USER` and `KIOSK_PASS`: Authentication credentials
 - Unique `kiosk_id` in `kiosk_gui.py` constructor
 
+## Multi-Kiosk Deployment
+
+The system supports multiple kiosk locations with automatic location tracking.
+
+### Setting Up Additional Kiosks
+
+**1. Each kiosk needs a unique ID:**
+- Main station: `station` (default)
+- Downtown location: `downtown`
+- Any other site: choose a descriptive name
+
+**2. Create a launcher script for each location:**
+
+**Windows Example** (`Start_Downtown_Kiosk.bat`):
+```batch
+@echo off
+echo Starting Downtown Kiosk...
+
+REM Set server connection details
+set SERVER_URL=http://your-server-ip:5000
+set KIOSK_USER=kiosk
+set KIOSK_PASS=your-password
+
+REM Navigate to script directory
+cd /d %~dp0
+
+REM Activate virtual environment
+call venv\Scripts\activate
+
+REM Run kiosk with location ID
+python kiosk_gui.py --kiosk-id downtown
+
+pause
+```
+
+**Linux Example** (`start_downtown_kiosk.sh`):
+```bash
+#!/bin/bash
+export SERVER_URL=http://your-server-ip:5000
+export KIOSK_USER=kiosk
+export KIOSK_PASS=your-password
+
+cd "$(dirname "$0")"
+source venv/bin/activate
+python kiosk_gui.py --kiosk-id downtown
+```
+
+**3. Auto-launch on Windows startup:**
+
+**Option A: Startup Folder** (Easiest)
+1. Press `Windows Key + R`
+2. Type `shell:startup` and press Enter
+3. Right-click → New → Shortcut
+4. Browse to your `.bat` file
+5. Click Next → Finish
+
+**Option B: Task Scheduler** (More Control)
+1. Open Task Scheduler
+2. Create Basic Task
+3. Name: "Downtown Kiosk"
+4. Trigger: "When the computer starts"
+5. Action: Start program → browse to `.bat` file
+6. Optional: Check "Run with highest privileges"
+
+**Option C: Full Kiosk Mode** (Unattended)
+1. Set Windows auto-login: `Win+R` → `netplwiz`
+2. Uncheck "Users must enter a username and password"
+3. Add shortcut to Startup folder
+4. PC boots → auto-login → kiosk launches
+
+**Pro Tip:** Set Windows "Active Hours" in Update settings to prevent mid-shift restarts.
+
+### Location Tracking
+
+All checkouts/checkins automatically record which kiosk was used:
+- Admin panel shows kiosk location in checkout history
+- Useful for tracking where equipment was last seen
+- Helps identify usage patterns by location
+
+
 **Offline Mode:**
 - Kiosks write to local SQLite database when server unavailable
 - Transactions queued in `offline_queue.db`
