@@ -2539,5 +2539,14 @@ class KioskGUI:
 
 
 if __name__ == '__main__':
-    kiosk = KioskGUI()
-    kiosk.run()
+    import sys
+
+    # Check for --kiosk-id argument
+    kiosk_id = 'station' #default
+    if '--kiosk-id' in sys.argv:
+        idx = sys.argv.index('--kiosk-id')
+        if idx + 1 < len(sys.argv):
+            kiosk_id = sys.argv[idx + 1]
+
+    kiosk = KioskGUI(kiosk_id=kiosk_id)
+    kiosk.root.mainloop()
