@@ -10,6 +10,10 @@ body {
             background-color: #f0f0f0;
             transition: background-color 0.3s, color 0.3s;
         }
+        .checkout-name {
+            font-size: 1.1em;
+            font-weight: bold;
+        }
         body.dark-mode {
             background-color: #1a1a1a;
             color: #ffffff;
@@ -390,7 +394,7 @@ body {
             {% if key.checkout_id %}
                 <div class="status checked-out">
                     <strong>Checked out to:</strong><br>
-                    {{ key.first_name }} {{ key.last_name }}<br>
+                    <span class="checkout-name">{{ key.first_name }} {{ key.last_name }}</span><br>
                     <small>Since {{ key.checked_out_at }}</small>
                 </div>
             {% else %}
@@ -413,7 +417,7 @@ body {
                 </div>
             {% endif %}
             {% if key.note %}
-                <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
                     ⚠️ Note: {{ key.note.note_text }}
                 </div>
             {% endif %}
@@ -431,7 +435,7 @@ body {
             {% if key.checkout_id %}
                 <div class="status checked-out">
                     <strong>Checked out to:</strong><br>
-                    {{ key.first_name }} {{ key.last_name }}<br>
+                    <span class="checkout-name">{{ key.first_name }} {{ key.last_name }}</span><br>
                     <small>Since {{ key.checked_out_at }}</small>
                 </div>
             {% else %}
@@ -454,7 +458,7 @@ body {
                 </div>
             {% endif %}
             {% if key.note %}
-                <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
                     ⚠️ Note: {{ key.note.note_text }}
                 </div>
             {% endif %}
@@ -472,7 +476,7 @@ body {
             {% if key.checkout_id %}
                 <div class="status checked-out">
                     <strong>Checked out to:</strong><br>
-                    {{ key.first_name }} {{ key.last_name }}<br>
+                    <span class=""checkout-name">{{ key.first_name }} {{ key.last_name }}</span><br>
                     <small>Since {{ key.checked_out_at }}</small>
                 </div>
             {% else %}
@@ -495,7 +499,7 @@ body {
                 </div>
             {% endif %}
             {% if key.note %}
-                <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
                     ⚠️ Note: {{ key.note.note_text }}
                 </div>
             {% endif %}
@@ -513,7 +517,7 @@ body {
             {% if key.checkout_id %}
                 <div class="status checked-out">
                     <strong>Checked out to:</strong><br>
-                    {{ key.first_name }} {{ key.last_name }}<br>
+                    <span class="checkout-name">{{ key.first_name }} {{ key.last_name }}</span><br>
                     <small>Since {{ key.checked_out_at }}</small>
                 </div>
             {% else %}
@@ -536,7 +540,7 @@ body {
                 </div>
             {% endif %}
             {% if key.note %}
-                <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
                     ⚠️ Note: {{ key.note.note_text }}
                 </div>
             {% endif %}
@@ -554,7 +558,7 @@ body {
             {% if key.checkout_id %}
                 <div class="status checked-out">
                     <strong>Checked out to:</strong><br>
-                    {{ key.first_name }} {{ key.last_name }}<br>
+                    <span class="checkout-name">{{ key.first_name }} {{ key.last_name }}</span><br>
                     <small>Since {{ key.checked_out_at }}</small>
                 </div>
             {% else %}
@@ -577,7 +581,7 @@ body {
                 </div>
             {% endif %}
             {% if key.note %}
-                <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
                     ⚠️ Note: {{ key.note.note_text }}
                 </div>
             {% endif %}
@@ -595,7 +599,7 @@ body {
             {% if key.checkout_id %}
                 <div class="status checked-out">
                     <strong>Checked out to:</strong><br>
-                    {{ key.first_name }} {{ key.last_name }}<br>
+                    <span class="checkout-name">{{ key.first_name }} {{ key.last_name }}</span><br>
                     <small>Since {{ key.checked_out_at }}</small>
                 </div>
             {% else %}
@@ -698,7 +702,7 @@ body {
                         </div>
                     ` : ''}
                     ${key.note ? `
-                        <div style="background: #FFC107; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
                             ⚠️ Note: ${key.note.note_text}
                         </div>
                     ` : ''}
