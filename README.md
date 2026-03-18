@@ -184,6 +184,76 @@ sqlite3 /path/to/key_checkout.db "INSERT INTO admin_users (username, password_ha
 
 ⚠️ **Security:** Only enable `OKTA_HEADER` when application is behind Okta proxy. If accessible directly, anyone can forge the header.
 
+### OKTA Deployment Checklist
+
+Before production deployment with OKTA authentication, confirm these details with IT:
+
+**1. Header Configuration:**
+- What HTTP header name will contain the authenticated username?
+  - Common examples: `X-Forwarded-User`, `X-Auth-User`, `Remote-User`
+  - This becomes your `OKTA_HEADER` environment variable
+
+**2. Username Format:**
+- What format will usernames be in?
+  - Examples: `sam.bollman`, `sbollman`, `sbollman@fargond.gov`
+  - Must match exactly when adding to `admin_users` table
+
+**3. Network Security:**
+- Will port 5000 be firewalled (only accessible from proxy)?
+  - **Recommended:** Bind to localhost only: `-p 127.0.0.1:5000:5000`
+  - Prevents direct access that bypasses OKTA authentication
+  
+**4. Public URL:**
+- What will the public-facing URL be?
+  - Example: `https://checkout.fargond.gov`
+  - Used for kiosk `SERVER_URL` configuration
+
+**5. SSL/TLS:**
+- Is HTTPS termination handled by the reverse proxy?
+  - Yes (recommended) - proxy handles SSL, communicates with Docker via HTTP
+  - Flask app doesn't need SSL certificate configuration
+
+### OKTA Security Best Practices
+
+⚠️ **CRITICAL SECURITY REQUIREMENT:**
+
+The `OKTA_HEADER` feature assumes the application is **only accessible through the OKTA proxy**. If the Docker port is directly accessible, authentication can be bypassed:
+```bash
+# Example of header forgery if port 5000 is exposed:
+curl -H "X-Forwarded-User: admin" http://yourserver:5000/admin
+# ^ This would grant admin access without OKTA login!
+```
+
+**Required Mitigations:**
+
+1. **Bind to localhost only:**
+```bash
+   -p 127.0.0.1:5000:5000  # Only accessible from the server itself
+```
+
+2. **Firewall external access:**
+   - Block port 5000 from external networks
+   - Only allow proxy server to connect
+
+3. **Verify setup:**
+```bash
+   # From external network - should fail:
+   curl http://your-server:5000
+   
+   # From proxy - should work:
+   curl http://localhost:5000
+```
+
+**Reverse Proxy Configuration Example (nginx):**
+```nginx
+location / {
+    proxy_pass http://localhost:5000;
+    proxy_set_header X-Forwarded-User $remote_user;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+```
+
 ### Environment Variables
 
 | Variable | Required | Default | Description |
