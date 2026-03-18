@@ -200,13 +200,16 @@ def index():
                        key=natural_sort_key)
     equipment = sorted([k for k in formatted_keys if k['category'] == 'Equipment'], 
                       key=natural_sort_key)
+    key_rings = sorted([k for k in formatted_keys if k['category'] == 'Key Rings'], 
+                       key=natural_sort_key)
     
     return render_template('index.html', 
                       squad_cars=squad_cars,
                       specialized_vehicles=specialized_vehicles,
                       cid_vehicles=cid_vehicles,
                       other_vehicles=other_vehicles,
-                      equipment=equipment)
+                      equipment=equipment,
+                      key_rings=key_rings)
 @app.route('/api/status')
 @require_kiosk_auth
 def api_status():
@@ -334,13 +337,16 @@ def api_status():
                        key=natural_sort_key)
     equipment = sorted([k for k in formatted_keys if k['category'] == 'Equipment'], 
                       key=natural_sort_key)
+    key_rings = sorted([k for k in formatted_keys if k['category'] == 'Key Rings'], 
+                       key=natural_sort_key)
     
     return {
     'squad_cars': squad_cars,
     'specialized_vehicles': specialized_vehicles,
     'cid_vehicles': cid_vehicles,
     'other_vehicles': other_vehicles,
-    'equipment': equipment
+    'equipment': equipment,
+    'key_rings': key_rings
 }
 
 @app.route('/api/notify', methods=['POST'])

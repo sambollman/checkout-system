@@ -383,6 +383,7 @@ body {
         <button class="tab" data-category="Specialized Services Vehicles">🚙 Specialized Services Vehicles</button>
         <button class="tab" data-category="Other Vehicles">🚗 Other Vehicles</button>
         <button class="tab" data-category="Equipment">🔧 Equipment</button>
+        <button class="tab" data-category="Key Rings">🔑 Key Rings</button>
     </div>
 
     <!-- Squad Cars Tab -->
@@ -589,6 +590,48 @@ body {
         {% endfor %}
     </div>
 </div>
+
+<!-- Key Rings Tab -->
+<div class="tab-content" id="Key Rings-content">
+    <div class="grid">
+        {% for key in key_rings %}
+        <div class="key-card {% if key.checkout_id %}checked-out{% else %}available{% endif %}">
+            <div class="vehicle-name">{{ key.vehicle_name }}</div>
+            {% if key.checkout_id %}
+                <div class="status checked-out">
+                    <strong>Checked out to:</strong><br>
+                    <span class="checkout-name">{{ key.first_name }} {{ key.last_name }}</span><br>
+                    <small>Since {{ key.checked_out_at }}</small>
+                </div>
+            {% else %}
+                <div class="status available">
+                    ✓ Available
+                </div>
+            {% endif %}
+            {% if key.reservation %}
+                <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    📅 Reserved<br>
+                    <small>
+                        {% if key.reservation.first_name %}
+                            For: {{ key.reservation.first_name }} {{ key.reservation.last_name }}<br>
+                        {% elif key.reservation.reserved_for_name %}
+                            For: {{ key.reservation.reserved_for_name }}<br>
+                        {% endif %}
+                        Time: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
+                    </small>
+                </div>
+            {% endif %}
+            {% if key.note %}
+                <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    ⚠️ Note: {{ key.note.note_text }}
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
     
     <div class="tab-content" id="Equipment-content">    
     <!-- Card View -->
@@ -664,6 +707,7 @@ body {
             updateSection('CID Vehicles', data.cid_vehicles);
             updateSection('Other Vehicles', data.other_vehicles);
             updateSection('Equipment', data.equipment);
+            updateSection('Key Rings', data.key_rings);
         }
         
         function updateSection(category, items) {
