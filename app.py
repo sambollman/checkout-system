@@ -198,10 +198,19 @@ def index():
                          key=natural_sort_key)
     other_vehicles = sorted([k for k in formatted_keys if k['category'] == 'Other Vehicles'], 
                        key=natural_sort_key)
+    # Equipment and Key Rings: Sort by checked-out status first, then alphabetically
+    def status_then_name_sort(item):
+        # Return tuple: (0 if checked out, 1 if available), then natural sort key
+        is_available = 0 if item.get('checkout_id') else 1
+        name_parts = [int(text) if text.isdigit() else text.lower() 
+                     for text in re.split('([0-9]+)', item['vehicle_name'])]
+        return (is_available, name_parts)
+    
     equipment = sorted([k for k in formatted_keys if k['category'] == 'Equipment'], 
-                      key=natural_sort_key)
+                      key=status_then_name_sort)
     key_rings = sorted([k for k in formatted_keys if k['category'] == 'Key Rings'], 
-                       key=natural_sort_key)
+                       key=status_then_name_sort)
+
     
     return render_template('index.html', 
                       squad_cars=squad_cars,
@@ -335,10 +344,18 @@ def api_status():
                          key=natural_sort_key)
     other_vehicles = sorted([k for k in formatted_keys if k['category'] == 'Other Vehicles'], 
                        key=natural_sort_key)
+    # Equipment and Key Rings: Sort by checked-out status first, then alphabetically
+    def status_then_name_sort(item):
+        # Return tuple: (0 if checked out, 1 if available), then natural sort key
+        is_available = 0 if item.get('checkout_id') else 1
+        name_parts = [int(text) if text.isdigit() else text.lower() 
+                     for text in re.split('([0-9]+)', item['vehicle_name'])]
+        return (is_available, name_parts)
+    
     equipment = sorted([k for k in formatted_keys if k['category'] == 'Equipment'], 
-                      key=natural_sort_key)
+                      key=status_then_name_sort)
     key_rings = sorted([k for k in formatted_keys if k['category'] == 'Key Rings'], 
-                       key=natural_sort_key)
+                       key=status_then_name_sort)
     
     return {
     'squad_cars': squad_cars,
