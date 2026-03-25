@@ -22,31 +22,32 @@ def require_kiosk_auth(f):
     return decorated_function
 
 # Okta proxy authentication (production)
-USERNAME_HEADER_NAME = os.getenv('USERNAME_HEADER_NAME')  # e.g., 'x-auth-proxy-username'
+OKTA_HEADER = os.getenv('OKTA_HEADER', '')  # Set to 'X-Auth-Proxy-Username' in production
 
 # Admin users authorized to access admin panel
 # I took this out, going to use admin database
 
 def get_authenticated_user():
     """Get authenticated user from proxy header (if configured)"""
-    if USERNAME_HEADER_NAME:
-        return request.headers.get(USERNAME_HEADER_NAME)
+    if OKTA_HEADER:
+        return request.headers.get(OKTA_HEADER)
     return None
 
 def is_admin_user(username):
     """Check if user is authorized for admin access"""
     conn = get_db()
-    admin = conn.execute('SELECT * FROM admin_users WHERE username = ?', (username,)).fechone()
+    admin = conn.execute('SELECT * FROM admin_users WHERE username = ?', (username,)).fetchone()
     conn.close()
     return admin is not None
 
 
 app = Flask(__name__)
-app.secret_key = 'change-this-to-something-secret'  # Change this!
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-socketio = SocketIO(app, cors_allowed_origins="*")
+CORS_ORIGINS = os.environ.get('CORS_ORIGINS', '*')
+socketio = SocketIO(app, cors_allowed_origins=CORS_ORIGINS)
 
-ADMIN_PASSWORD = 'admin123'  # Change this to a real password!
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', '')  # Empty = disable password login
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -533,19 +534,20 @@ def api_checkin():
         return {'error': str(e)}, 500
 
 
-# DEVELOPMENT ONLY - REMOVE in production (OKTA handles login)
-@app.route('/admin/login', methods=['GET', 'POST'])
-def admin_login():
-    """Admin login page"""
-    if request.method == 'POST':
-        password = request.form.get('password')
-        if password == ADMIN_PASSWORD:
-            session['admin'] = True
-            return redirect(url_for('admin_dashboard'))
-        else:
-            return render_template('admin_login.html', error='Invalid password')
-    
-    return render_template('admin_login.html')
+# Admin login - only available if ADMIN_PASSWORD is set AND not in OKTA mode
+if ADMIN_PASSWORD and not OKTA_HEADER:
+    @app.route('/admin/login', methods=['GET', 'POST'])
+    def admin_login():
+        """Admin login page (development/emergency use only)"""
+        if request.method == 'POST':
+            password = request.form.get('password')
+            if password == ADMIN_PASSWORD:
+                session['admin'] = True
+                return redirect(url_for('admin_dashboard'))
+            else:
+                return render_template('admin_login.html', error='Invalid password')
+        
+        return render_template('admin_login.html')
 
 @app.route('/admin/logout')
 def admin_logout():
@@ -1378,4 +1380,8 @@ def delete_admin_user(admin_id):
 
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
+# Get debug settings from environment (default to False for production safety)
+    DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
+    ALLOW_UNSAFE_WERKZEUG = os.environ.get('ALLOW_UNSAFE_WERKZEUG', 'False').lower() == 'true'
+    
+    socketio.run(app, host='0.0.0.0', port=5000, debug=DEBUG, allow_unsafe_werkzeug=ALLOW_UNSAFE_WERKZEUG)

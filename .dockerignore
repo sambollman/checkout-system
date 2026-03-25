@@ -1,0 +1,47 @@
+# Kiosk files (not needed in server image)
+kiosk_gui.py
+Start_Kiosk.bat
+Start_Trikke_Kiosk.bat
+start_kiosk.sh
+
+# Git files
+.git
+.gitignore
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Virtual environment
+venv/
+env/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Documentation (optional - include if you want docs in image)
+README.md
+DEPLOYMENT.md
+IT_DEPLOYMENT_CHECKLIST.md
+KIOSK_INSTALLATION.md
+
+# Database (mounted as volume, not copied)
+*.db
+*.db-journal
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Skills directory (if not needed in container)
+/mnt/skills/
