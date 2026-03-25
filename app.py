@@ -461,6 +461,78 @@ def register_equipment():
         conn.close()
         return {'error': str(e)}, 500
 
+@app.route('/api/checkout', methods=['POST'])
+@require_kiosk_auth
+def api_checkout():
+    """Checkout a fob to a user"""
+    data = request.get_json()
+    
+    user_id = data.get('user_id')
+    fob_id = data.get('fob_id')
+    
+    if not user_id or not fob_id:
+        return {'error': 'Missing user_id or fob_id'}, 400
+    
+    chicago_tz = pytz.timezone('America/Chicago')
+    conn = get_db()
+    
+    try:
+        # Insert checkout
+        conn.execute('''
+            INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at)
+            VALUES (?, ?, ?, ?)
+        ''', (user_id, fob_id, data.get('kiosk_id', 'station'), datetime.now(chicago_tz).isoformat()))
+        conn.commit()
+        conn.close()
+        
+        # Broadcast update
+        socketio.emit('status_update', api_status())
+        
+        return {'status': 'success', 'message': 'Checked out successfully'}, 201
+    except Exception as e:
+        conn.close()
+        return {'error': str(e)}, 500
+
+@app.route('/api/checkin', methods=['POST'])
+@require_kiosk_auth  
+def api_checkin():
+    """Check in a fob"""
+    data = request.get_json()
+    
+    fob_id = data.get('fob_id')
+    
+    if not fob_id:
+        return {'error': 'Missing fob_id'}, 400
+    
+    chicago_tz = pytz.timezone('America/Chicago')
+    conn = get_db()
+    
+    try:
+        # Get the key_fobs table id from fob_id
+        fob = conn.execute('SELECT id FROM key_fobs WHERE fob_id = ? COLLATE NOCASE', (fob_id,)).fetchone()
+        
+        if not fob:
+            conn.close()
+            return {'error': 'Fob not found'}, 404
+        
+        # Update the active checkout
+        conn.execute('''
+            UPDATE checkouts
+            SET checked_in_at = ?
+            WHERE fob_id = ? AND checked_in_at IS NULL
+        ''', (datetime.now(chicago_tz).isoformat(), fob['id']))
+        conn.commit()
+        conn.close()
+        
+        # Broadcast update
+        socketio.emit('status_update', api_status())
+        
+        return {'status': 'success', 'message': 'Checked in successfully'}, 200
+    except Exception as e:
+        conn.close()
+        return {'error': str(e)}, 500
+
+
 # DEVELOPMENT ONLY - REMOVE in production (OKTA handles login)
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -1304,66 +1376,6 @@ def delete_admin_user(admin_id):
     
     return redirect('/admin/admins')
 
-
-@app.route('/api/offline_sync/checkout', methods=['POST'])
-@require_kiosk_auth
-def offline_sync_checkout():
-    """Accept offline checkout from kiosk"""
-    data = request.json
-    chicago_tz = pytz.timezone('America/Chicago')
-    
-    conn = get_db()
-    
-    # Find or create user
-    user = conn.execute('SELECT * FROM users WHERE card_id = ?', (data['user_card_id'],)).fetchone()
-    
-    if not user and data.get('user_first_name') and data.get('user_last_name'):
-        # Create user if doesn't exist
-        conn.execute('''
-            INSERT INTO users (card_id, first_name, last_name)
-            VALUES (?, ?, ?)
-        ''', (data['user_card_id'], data['user_first_name'], data['user_last_name']))
-        conn.commit()
-        user = conn.execute('SELECT * FROM users WHERE card_id = ?', (data['user_card_id'],)).fetchone()
-    
-    # Find fob
-    fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ?', (data['fob_id'],)).fetchone()
-    
-    if user and fob:
-        # Insert checkout with original timestamp
-        conn.execute('''
-            INSERT INTO checkouts (user_id, fob_id, checked_out_at, kiosk_id)
-            VALUES (?, ?, ?, ?)
-        ''', (user['id'], fob['id'], data['timestamp'], data['kiosk_id']))
-        conn.commit()
-    
-    conn.close()
-    socketio.emit('status_update', api_status())
-    return {'success': True}
-
-@app.route('/api/offline_sync/checkin', methods=['POST'])
-@require_kiosk_auth
-def offline_sync_checkin():
-    """Accept offline checkin from kiosk"""
-    data = request.json
-    
-    conn = get_db()
-    fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ?', (data['fob_id'],)).fetchone()
-    
-    if fob:
-        # Find active checkout and mark checked in
-        conn.execute('''
-            UPDATE checkouts 
-            SET checked_in_at = ?
-            WHERE fob_id = ? AND checked_in_at IS NULL
-            ORDER BY checked_out_at DESC
-            LIMIT 1
-        ''', (data['timestamp'], fob['id']))
-        conn.commit()
-    
-    conn.close()
-    socketio.emit('status_update', api_status())
-    return {'success': True}
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)

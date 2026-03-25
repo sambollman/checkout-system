@@ -4,7 +4,6 @@ from tkinter import font
 import time
 from database import get_db
 from datetime import datetime, timedelta
-from offline_queue import queue_transaction, get_pending_transactions, mark_synced, get_queue_count
 import threading
 import pytz
 import threading
@@ -30,15 +29,10 @@ class KioskGUI:
         self.replace_mode = None # 'card' or 'fob'
         self.replace_item = None # The item being replaced
         self.note_mode = False
-        self.offline_mode = False
-        self.sync_in_progress = False
-        self.pending_count = 0
         self.barns_scan_mode = False
         self.bulk_checkout_mode = False
         self.bulk_items = []
 
-        # Offline mode indicator
-        self.offline_indicator = None
 
         # Create main window
         self.root = tk.Tk()
@@ -95,9 +89,6 @@ class KioskGUI:
         # Start timeout checker
         self.check_timeout_loop()
 
-        # Start connectivity check loop
-        self.check_connectivity_loop()
-    
     def notify_server(self):
         """Notify server that status changed"""
         try:
@@ -171,6 +162,48 @@ class KioskGUI:
                 return False, error_msg
         except Exception as e:
             return False, str(e)
+
+    def checkout_api(self, user_id, fob_id):
+            """Checkout via API"""
+            try:
+                response = requests.post(
+                    f'{SERVER_URL}/api/checkout',
+                    auth=(KIOSK_USER, KIOSK_PASS),
+                    json={
+                        'user_id': user_id,
+                        'fob_id': fob_id,
+                        'kiosk_id': self.kiosk_id
+                    },
+                    timeout=5
+                )
+                if response.status_code == 201:
+                    return True, None
+                else:
+                    error_msg = response.json().get('error', 'Unknown error')
+                    return False, error_msg
+            except Exception as e:
+                return False, str(e)
+    
+    def checkin_api(self, fob_id):
+            """Check in via API"""
+            try:
+                response = requests.post(
+                    f'{SERVER_URL}/api/checkin',
+                    auth=(KIOSK_USER, KIOSK_PASS),
+                    json={
+                        'fob_id': fob_id
+                    },
+                    timeout=5
+                )
+                if response.status_code == 200:
+                    return True, None
+                else:
+                    error_msg = response.json().get('error', 'Unknown error')
+                    return False, error_msg
+            except Exception as e:
+                return False, str(e)
+
+
 
 
     def get_text_input(self, prompt, title="Input"):
@@ -1436,43 +1469,14 @@ class KioskGUI:
                 # User data returned from API - no DB query needed!
                 user = error_or_response  # This is actually the response when success=True
             
-            # Check out the pending fob - get fresh connection
-            conn = get_db()
-            try:
-                if not self.check_server_available():
-                    raise Exception("Server offline")
-                conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
-                            (user['id'], self.pending_fob['id'], self.kiosk_id, datetime.now(pytz.timezone('America/Chicago'))))
-                conn.commit()
-                conn.close()
-                self.notify_server()
-            except Exception as e:
-                # Server offline - write locally AND queue for sync
-                try:
-                    conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
-                                (user['id'], self.pending_fob['id'], self.kiosk_id, datetime.now(pytz.timezone('America/Chicago'))))
-                    conn.commit()
-                    print(f"✓ Written to local DB successfully")
-                except Exception as db_error:
-                    print(f"✗ Failed to write to local DB: {db_error}")
-                finally:
-                    conn.close()
-                
-                # Also queue for server sync
-                user_info = {
-                    'card_id': user['card_id'],
-                    'first_name': user['first_name'],
-                    'last_name': user['last_name']
-                }
-                fob_info = {
-                    'fob_id': self.pending_fob['fob_id'],
-                    'vehicle_name': self.pending_fob['vehicle_name']
-                }
-                count = queue_transaction('checkout', user_info, fob_info, self.kiosk_id)
-                self.go_offline()
-                self.update_offline_count()
-                print(f"⚠️ Queued checkout offline ({count} pending): {e}")
-
+            # Check out the pending fob via API
+            success, error = self.checkout_api(user['id'], self.pending_fob['id'])
+            if not success:
+                self.pending_fob = None
+                self.show_error(f"Checkout failed: {error}")
+                return
+            
+            self.notify_server()
             
             self.show_checkout_success(self.pending_fob['vehicle_name'], self.pending_fob['category'])
             self.pending_fob = None
@@ -1626,39 +1630,15 @@ class KioskGUI:
    
             # If user already scanned card, check out the new fob immediately
             if self.current_user:
-                conn = get_db()
-                try:
-                    if not self.check_server_available():
-                        raise Exception("Server offline")
-                    conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
-                        (self.current_user['id'], fob['id'], self.kiosk_id, datetime.now(pytz.timezone('America/Chicago'))))
-                    conn.commit()
-                    conn.close()
-                    self.notify_server()
-                except Exception as e:
-                    # Server offline - write locally AND queue for sync
-                    conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
-                        (self.current_user['id'], fob['id'], self.kiosk_id, datetime.now(pytz.timezone('America/Chicago'))))
-                    conn.commit()
-                    conn.close()
-                        
-                    # Also queue for server sync
-                    user_info = {
-                        'card_id': self.current_user['card_id'],
-                        'first_name': self.current_user['first_name'],
-                        'last_name': self.current_user['last_name']
-                    }
-                    fob_info = {
-                        'fob_id': fob['fob_id'],
-                        'vehicle_name': fob['vehicle_name']
-                    }
-                    count = queue_transaction('checkout', user_info, fob_info, self.kiosk_id)
-                    self.go_offline()
-                    self.update_offline_count()
-                    print(f"⚠️ Queued checkout offline ({count} pending): {e}")
-                    
+                # Checkout via API
+                success, error = self.checkout_api(self.current_user['id'], fob['id'])
+                if not success:
+                    self.show_error(f"Checkout failed: {error}")
+                    return
+                
+                self.notify_server()
                 self.show_checkout_success(fob['vehicle_name'], fob['category'])
-                self.current_user = None
+                    
                 return
             else:
                 # No user scanned yet - show success and prompt
@@ -1711,38 +1691,22 @@ class KioskGUI:
             # Check if there's a different user trying to take it
             if self.current_user and self.current_user['id'] != checkout['user_id']:
                 # Handoff: check in from previous user, check out to new user
-                try:
-                    if not self.check_server_available():
-                        raise Exception("Server offline")
-                    conn.execute('UPDATE checkouts SET checked_in_at = ? WHERE id = ?',
-                                (datetime.now(pytz.timezone('America/Chicago')), checkout['id']))
-                    conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
-                            (self.current_user['id'], fob['id'], self.kiosk_id, datetime.now(pytz.timezone('America/Chicago'))))
-                    conn.commit()
+                # First check in
+                success, error = self.checkin_api(fob['fob_id'])
+                if not success:
                     conn.close()
-                    self.notify_server()
-                except Exception as e:
-                    # Server offline - write locally AND queue for sync
-                    conn.execute('UPDATE checkouts SET checked_in_at = ? WHERE id = ?',
-                                (datetime.now(pytz.timezone('America/Chicago')), checkout['id']))
-                    conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
-                            (self.current_user['id'], fob['id'], self.kiosk_id, datetime.now(pytz.timezone('America/Chicago'))))
-                    conn.commit()
+                    self.show_error(f"Check-in failed: {error}")
+                    return
+                
+                # Then check out to new user
+                success, error = self.checkout_api(self.current_user['id'], fob['id'])
+                if not success:
                     conn.close()
-                    
-                    # Also queue for server sync
-                    fob_info = {'fob_id': fob['fob_id'], 'vehicle_name': fob['vehicle_name']}
-                    queue_transaction('checkin', None, fob_info, self.kiosk_id)
-                    
-                    user_info = {
-                        'card_id': self.current_user['card_id'],
-                        'first_name': self.current_user['first_name'],
-                        'last_name': self.current_user['last_name']
-                    }
-                    count = queue_transaction('checkout', user_info, fob_info, self.kiosk_id)
-                    self.go_offline()
-                    self.update_offline_count()
-                    print(f"⚠️ Queued handoff offline ({count} pending): {e}")
+                    self.show_error(f"Checkout failed: {error}")
+                    return
+                
+                conn.close()
+                self.notify_server()
                 
                 self.clear_message_frame()
                 
@@ -1781,31 +1745,15 @@ class KioskGUI:
                 # Return to welcome after 3 seconds
                 self.root.after(3000, self.show_welcome)
             else:
-                # Same user returning it, or no user scanned
-                try:
-                    if not self.check_server_available():
-                        raise Exception("Server offline")
-                    conn.execute('UPDATE checkouts SET checked_in_at = ? WHERE id = ?',
-                                (datetime.now(pytz.timezone('America/Chicago')), checkout['id']))
-                    conn.commit()
+                # Check in via API
+                success, error = self.checkin_api(fob['fob_id'])
+                if not success:
                     conn.close()
-                    self.notify_server()
-                except Exception as e:
-                    # Server offline - write locally AND queue for sync
-                    conn.execute('UPDATE checkouts SET checked_in_at = ? WHERE id = ?',
-                                (datetime.now(pytz.timezone('America/Chicago')), checkout['id']))
-                    conn.commit()
-                    conn.close()
-                    
-                    # Also queue for server sync
-                    fob_info = {
-                        'fob_id': fob['fob_id'],
-                        'vehicle_name': fob['vehicle_name']
-                    }
-                    count = queue_transaction('checkin', None, fob_info, self.kiosk_id)
-                    self.go_offline()
-                    self.update_offline_count()
-                    print(f"⚠️ Queued checkin offline ({count} pending): {e}")
+                    self.show_error(f"Check-in failed: {error}")
+                    return
+                
+                conn.close()
+                self.notify_server()
                 
                 was_with = f"{checkout['first_name']} {checkout['last_name']}"
                 self.show_checkin_success(fob['vehicle_name'], was_with)
@@ -1916,43 +1864,15 @@ class KioskGUI:
 
 
   
-                # Try to checkout
-                try:
-                    if not self.check_server_available():
-                        raise Exception("Server offline")
-                    conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
-                            (self.current_user['id'], fob['id'], self.kiosk_id, datetime.now(pytz.timezone('America/Chicago'))))
-                    conn.commit()
+                # Checkout via API
+                success, error = self.checkout_api(self.current_user['id'], fob['id'])
+                if not success:
                     conn.close()
-                    self.notify_server()
+                    self.show_error(f"Checkout failed: {error}")
+                    return
                 
-                except Exception as e:
-                    # Server offline - write locally AND queue for sync
-                    try:
-                        conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
-                                (self.current_user['id'], fob['id'], self.kiosk_id, datetime.now(pytz.timezone('America/Chicago'))))
-                        conn.commit()
-                        print(f"✓ Written to local DB successfully")
-                    except Exception as db_error:
-                        print(f"✗ Failed to write to local DB: {db_error}")
-                    finally:
-                        conn.close()
-                    
-                    # Also queue for server sync
-                    user_info = {
-                        'card_id': self.current_user['card_id'],
-                        'first_name': self.current_user['first_name'],
-                        'last_name': self.current_user['last_name']
-                    }
-                    fob_info = {
-                        'fob_id': fob['fob_id'],
-                        'vehicle_name': fob['vehicle_name']
-                    }
-                    count = queue_transaction('checkout', user_info, fob_info, self.kiosk_id)
-                    self.go_offline()
-                    self.update_offline_count()
-                    print(f"⚠️ Queued checkout offline ({count} pending): {e}")
-                
+                conn.close()
+                self.notify_server()
                 self.show_checkout_success(fob['vehicle_name'], fob['category'])
                 self.current_user = None
             else:
@@ -2013,137 +1933,6 @@ class KioskGUI:
         # Check again in 1 second
         self.root.after(1000, self.check_timeout_loop)
     
-    def check_connectivity_loop(self):
-        """Check if server is reachable and sync if needed"""
-        def check():
-            try:
-                response = requests.get(
-                    f'{SERVER_URL}/api/status',
-                    auth=(KIOSK_USER, KIOSK_PASS),
-                    timeout=2
-                )
-                if response.status_code == 200:
-                    # Server is reachable
-                    if self.offline_mode:
-                        self.go_online()
-                    return True
-            except:
-                pass
-            
-            # Server unreachable
-            if not self.offline_mode:
-                self.go_offline()
-            return False
-        
-        # Check in background thread
-        threading.Thread(target=check, daemon=True).start()
-        
-        # Check again in 30 seconds
-        self.root.after(30000, self.check_connectivity_loop)
-    
-    def go_offline(self):
-        """Switch to offline mode"""
-        if not self.offline_mode:
-            self.offline_mode = True
-            self.pending_count = get_queue_count()
-            print("⚠️ OFFLINE MODE ACTIVATED")
-            self.show_offline_indicator()
-    
-    def go_online(self):
-        """Switch back to online mode and sync queued transactions"""
-        if self.offline_mode and not self.sync_in_progress:
-            self.offline_mode = False
-            self.hide_offline_indicator()
-            print("✅ BACK ONLINE - Syncing...")
-            
-            # Sync queued transactions in background
-            threading.Thread(target=self.sync_offline_queue, daemon=True).start()
-    
-    def show_offline_indicator(self):
-        """Show offline mode banner"""
-        if self.offline_indicator:
-            return
-        
-        self.offline_indicator = tk.Label(
-            self.root,
-            text=f"⚠️ OFFLINE MODE - {self.pending_count} queued",
-            font=font.Font(size=20, weight='bold'),
-            bg='#FF9800',
-            fg='white',
-            pady=10
-        )
-        self.offline_indicator.pack(side='top', fill='x')
-    
-    def hide_offline_indicator(self):
-        """Hide offline mode banner"""
-        if self.offline_indicator:
-            self.offline_indicator.pack_forget()
-            self.offline_indicator = None
-    
-    def update_offline_count(self):
-        """Update pending transaction count in offline indicator"""
-        self.pending_count = get_queue_count()
-        if self.offline_indicator:
-            self.offline_indicator.config(text=f"⚠️ OFFLINE MODE - {self.pending_count} queued")
-    
-    def sync_offline_queue(self):
-        """Sync all queued transactions to server"""
-        self.sync_in_progress = True
-        pending = get_pending_transactions()
-        
-        if not pending:
-            self.sync_in_progress = False
-            return
-        
-        synced_count = 0
-        failed_count = 0
-        
-        for trans in pending:
-            try:
-                if trans['transaction_type'] == 'checkout':
-                    data = {
-                        'user_card_id': trans['user_card_id'],
-                        'user_first_name': trans['user_first_name'],
-                        'user_last_name': trans['user_last_name'],
-                        'fob_id': trans['fob_id'],
-                        'timestamp': trans['timestamp'],
-                        'kiosk_id': trans['kiosk_id']
-                    }
-                    response = requests.post(
-                        f'{SERVER_URL}/api/offline_sync/checkout',
-                        json=data,
-                        auth=(KIOSK_USER, KIOSK_PASS),
-                        timeout=5
-                    )
-                    
-                elif trans['transaction_type'] == 'checkin':
-                    data = {
-                        'fob_id': trans['fob_id'],
-                        'timestamp': trans['timestamp'],
-                        'kiosk_id': trans['kiosk_id']
-                    }
-                    response = requests.post(
-                        f'{SERVER_URL}/api/offline_sync/checkin',
-                        json=data,
-                        auth=(KIOSK_USER, KIOSK_PASS),
-                        timeout=5
-                    )
-                
-                if response.status_code == 200:
-                    mark_synced(trans['id'])
-                    synced_count += 1
-                else:
-                    failed_count += 1
-                    
-            except Exception as e:
-                print(f"Sync failed for transaction {trans['id']}: {e}")
-                failed_count += 1
-        
-        print(f"✅ Synced {synced_count} transactions ({failed_count} failed)")
-        self.sync_in_progress = False
-        self.pending_count = get_queue_count()
-
-
     def run(self):
         """Start the GUI"""
         self.root.mainloop()
