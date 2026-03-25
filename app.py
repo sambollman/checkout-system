@@ -176,7 +176,17 @@ def index():
         # Add reservation info
         if key_dict['id'] in reservation_map:
             res = reservation_map[key_dict['id']]
-            key_dict['reservation'] = dict(res)
+            res_dict = dict(res)
+            # Format reservation datetime to match checkout time format
+            if res_dict.get('reserved_datetime'):
+                try:
+                    dt = datetime.fromisoformat(res_dict['reserved_datetime'])
+                    if dt.tzinfo is not None:
+                        dt = dt.astimezone(chicago_tz)
+                    res_dict['reserved_datetime'] = dt.strftime('%b %d, %Y %H:%M')  # Match checkout format
+                except:
+                    pass
+            key_dict['reservation'] = res_dict
         else:
             key_dict['reservation'] = None
 
@@ -318,7 +328,17 @@ def api_status():
         # Add reservation info
         if key_dict['id'] in reservation_map:
             res = reservation_map[key_dict['id']]
-            key_dict['reservation'] = dict(res)
+            res_dict = dict(res)
+            # Format reservation datetime to match checkout time format
+            if res_dict.get('reserved_datetime'):
+                try:
+                    dt = datetime.fromisoformat(res_dict['reserved_datetime'])
+                    if dt.tzinfo is not None:
+                        dt = dt.astimezone(chicago_tz)
+                    res_dict['reserved_datetime'] = dt.strftime('%b %d, %Y %H:%M')  # Match checkout format
+                except:
+                    pass
+            key_dict['reservation'] = res_dict
             print(f"DEBUG: Added reservation to {key_dict['vehicle_name']} (id={key_dict['id']})")
         else:
             key_dict['reservation'] = None
