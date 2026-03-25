@@ -6,21 +6,21 @@ RFID-based self-service checkout system for tracking vehicles and equipment. Emp
 Working prototype running on Raspberry Pi 5. Ready for production deployment on IT infrastructure.
 
 ## Features
-- **Self-service kiosk:** Scan card, scan fob, done (3 seconds)
-- **Bulk checkout:** Scan card once, then scan multiple items - perfect for shift changes
-- **Real-time dashboard:** Live status updates via WebSocket
-- **Admin panel:** Tabbed interface for user/equipment management, checkout history, reservations
-- **Reservations:** Soft-reserve equipment with kiosk warnings
-- **Notes with expiration:** Digital equipment tags that auto-delete after expiration (e.g., "Computer broken - expires 3/10")
-- **Barcode support:** Print labels for equipment without RFID fobs
-- **Multi-location ready:** Tracks which kiosk (garage, station, warehouse)
-- **Mobile responsive:** Dashboard works on phones/tablets
-- **Dark mode:** For both dashboard and admin panel
-- **Category Tabs:** Organize vehicles by type (Squad Cars, Specialized Services, CID Vehicles, Equipment)
-- **Barns Transfer:** Transfer vehicles to maintenance facility with or without physical fob (scan or select from list)
-- **Flexible Kiosk Windows:** Add notes and transfer vehicles either by scanning fobs or selecting from equipment list
-- **Clickable Kiosk Interface:** Button-based UI for all kiosk operations
-- **Offline mode:** Kiosk queues transactions when server unavailable, auto-syncs when reconnected
+
+- **Real-time Vehicle Tracking**: See which vehicles are checked out and who has them
+- **RFID-Based**: Fast checkout using employee keycards and vehicle fobs
+- **Bulk Checkout**: Scan one card, then scan multiple vehicles for quick multi-item checkout
+- **Special Functions**:
+  - Barns Transfer: Send vehicles to The Barns with one button
+  - Card Replacement: Replace lost/damaged employee keycards
+  - Notes System: Add warnings or reminders with optional expiration
+- **Multi-Location Support**: Run multiple kiosk stations (main garage, downtown, etc.)
+- **Live Updates**: Dashboard updates in real-time via WebSockets
+- **Admin Panel**: Web-based management for users, equipment, and checkout history
+- **Category Management**: Organize by Squad Cars, CID Vehicles, Equipment, Key Rings, etc.
+- **Smart Sorting**: Checked-out items appear first in Equipment and Key Rings tabs
+- **Reservation System**: Reserve vehicles in advance with display windows
+- **OKTA Integration**: Enterprise authentication ready for production deployment
 
 ## Technology Stack
 - **Backend:** Python 3.11, Flask, Flask-SocketIO
@@ -33,7 +33,7 @@ Working prototype running on Raspberry Pi 5. Ready for production deployment on 
 
 ### Prerequisites
 - Python 3.11+
-- Raspberry Pi OS or Linux/macOS
+- Linux/macOS/Windows
 
 ### Installation
 ```bash
@@ -46,20 +46,25 @@ python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
-pip install --break-system-packages -r requirements.txt
+pip install -r requirements.txt
 
 # Initialize database
 python database.py
 
-# Run Flask server
+# Run Flask server with development settings
+export ALLOW_UNSAFE_WERKZEUG=True  # Windows: set ALLOW_UNSAFE_WERKZEUG=True
+export ADMIN_PASSWORD=admin123
 python app.py
 
 # In another terminal, run kiosk GUI
+export SERVER_URL=http://localhost:5000
+export KIOSK_USER=kiosk
+export KIOSK_PASS=change-this-in-production
 python kiosk_gui.py
 ```
 
 Access dashboard at: http://localhost:5000  
-Admin panel at: http://localhost:5000/admin (password: `admin123`)
+Admin panel at: http://localhost:5000/admin (password: `admin123` in dev mode)
 
 ## Kiosk Workflows
 
@@ -114,53 +119,71 @@ Key Fobs tab now shows:
 - Expiration date/time (if set)
 - Visual indicator (yellow box with clock icon for expiring notes)
 
-## Production Deployment
+## Server Deployment
 
-### Docker Setup
+### Production (Docker with OKTA)
 ```bash
-# Build image
+# 1. Clone repository
+git clone https://github.com/sambollman/checkout-system.git
+cd checkout-system
+
+# 2. Build Docker image
 docker build -t checkout-system .
 
-# Run container
+# 3. Run container
 docker run -d \
   --name checkout-app \
   --restart unless-stopped \
-  -p 5000:5000 \
-  -v ~/key-checkout-system:/data \
+  -p 127.0.0.1:5000:5000 \              # Bind to localhost only
+  -v /data:/data \                       # Persistent database storage
   -e DB_PATH=/data/key_checkout.db \
+  -e OKTA_HEADER=X-Auth-Proxy-Username \
+  -e SECRET_KEY=$(openssl rand -hex 32) \
   -e KIOSK_USER=kiosk \
-  -e KIOSK_PASS=secure-password-here \
+  -e KIOSK_PASS=$(openssl rand -base64 32) \
+  -e DEBUG=False \
+  -e CORS_ORIGINS=https://checkout.fargond.gov \
   checkout-system
+
+# 4. Initialize first admin user
+sqlite3 /data/key_checkout.db \
+  "INSERT INTO admin_users (username, password_hash) VALUES ('your.username', '');"
+
+# 5. Configure reverse proxy (nginx example)
+# See IT_DEPLOYMENT_CHECKLIST.md for full configuration
 ```
 
-### Authentication
-
-The application supports two authentication modes:
-
-#### Development Mode (Default)
-- Admin panel uses simple password authentication
-- Default password: `admin123` (change this!)
-- Kiosk endpoints use HTTP Basic Auth with username/password
-
-#### Production Mode (Okta Proxy)
-Set the `OKTA_HEADER` environment variable to enable Okta authentication:
+### Development (Local Testing)
 ```bash
-docker run -d \
-  --name checkout-app \
-  -p 5000:5000 \
-  -v /path/to/data:/data \
-  -e DB_PATH=/data/key_checkout.db \
-  -e OKTA_HEADER=X-Forwarded-User \
-  -e KIOSK_USER=kiosk \
-  -e KIOSK_PASS=secure-password \
-  checkout-system
+# 1. Install dependencies
+python3 -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# 2. Run server
+export ALLOW_UNSAFE_WERKZEUG=True
+export ADMIN_PASSWORD=testpass123
+python app.py
+
+# 3. Run kiosk (separate terminal)
+export SERVER_URL=http://localhost:5000
+export KIOSK_USER=kiosk
+export KIOSK_PASS=change-this-in-production
+python kiosk_gui.py
 ```
 
-**How it works:**
-1. IT's Okta proxy authenticates users
-2. Proxy passes username in HTTP header (e.g., `X-Forwarded-User: sam.bollman`)
-3. Application reads header and checks against authorized admin list
-4. Kiosk endpoints bypass Okta and use HTTP Basic Auth
+### Kiosk Deployment
+
+See `KIOSK_INSTALLATION.md` for detailed installation instructions.
+
+**Quick setup:**
+1. Install Python 3.11 on Windows laptop
+2. Clone repository
+3. Edit `Start_Kiosk.bat` with production SERVER_URL and credentials
+4. Add to Windows Startup folder for auto-launch
+5. Connect RFID reader via USB
+
+
 
 **Authorized Admins:**
 
@@ -254,15 +277,43 @@ location / {
 }
 ```
 
-### Environment Variables
+## Environment Variables
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `DB_PATH` | Yes | `key_checkout.db` | Path to SQLite database file |
-| `KIOSK_USER` | Yes | `kiosk` | Username for kiosk Basic Auth |
-| `KIOSK_PASS` | Yes | `change-this-in-production` | Password for kiosk Basic Auth |
-| `OKTA_HEADER` | No | `X-Forwarded-User` | Header name for Okta username |
-| `SERVER_URL` | Kiosk only | `http://localhost:5000` | Server URL for kiosk client |
+### Server (Docker Container)
+
+**Required:**
+```bash
+DB_PATH=/data/key_checkout.db              # Database file location
+KIOSK_USER=kiosk                           # Kiosk authentication username
+KIOSK_PASS=               # Kiosk authentication password
+```
+
+**Production (OKTA Mode):**
+```bash
+OKTA_HEADER=X-Auth-Proxy-Username          # Header containing authenticated username
+SECRET_KEY=          # Flask session secret (generate random)
+DEBUG=False                                 # Disable debug mode
+ALLOW_UNSAFE_WERKZEUG=False                # Use proper WSGI server (gunicorn/uwsgi)
+CORS_ORIGINS=https://checkout.domain.com   # Allowed CORS origins
+```
+
+**Development/Emergency:**
+```bash
+ADMIN_PASSWORD=                  # Enable password-based admin login
+                                           # Leave empty to disable (OKTA only)
+DEBUG=True                                  # Enable debug mode
+ALLOW_UNSAFE_WERKZEUG=True                 # Allow Werkzeug dev server
+```
+
+### Kiosk (Windows/Linux)
+
+**Required:**
+```bash
+SERVER_URL=https://checkout.domain.com     # Server URL (HTTPS in production)
+KIOSK_USER=kiosk                           # Must match server KIOSK_USER
+KIOSK_PASS=               # Must match server KIOSK_PASS
+
+**Set in launcher scripts** (`Start_Kiosk.bat` or `start_kiosk.sh`)
 
 ### Kiosk Installation
 
@@ -283,20 +334,59 @@ location / {
 4. Run: `./start_kiosk.sh`
 5. Optional: Create desktop launcher (see `Launch_Kiosk.desktop`)
 
-### Multi-Kiosk Deployment
+## Architecture
 
-**Architecture:**
+### Production Architecture (API-Based)
 ```
-Central Server (Flask + PostgreSQL)
-    ├── Kiosk 1 (Garage) - kiosk_id: 'kiosk1'
-    ├── Kiosk 2 (Station) - kiosk_id: 'kiosk2'
-    └── Kiosk 3 (Warehouse) - kiosk_id: 'kiosk3'
+┌─────────────────────────────────────────────────────────────┐
+│                        IT Infrastructure                     │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  OKTA Proxy (nginx/Apache)                             │ │
+│  │  - HTTPS termination                                   │ │
+│  │  - OKTA authentication                                 │ │
+│  │  - Sets X-Auth-Proxy-Username header                   │ │
+│  └─────────────────┬──────────────────────────────────────┘ │
+│                    │                                         │
+│  ┌─────────────────▼──────────────────────────────────────┐ │
+│  │  Docker Container (Server)                             │ │
+│  │  ┌──────────────────────────────────────────────────┐  │ │
+│  │  │  Flask App (app.py)                              │  │ │
+│  │  │  - REST API endpoints                            │  │ │
+│  │  │  - Admin panel                                   │  │ │
+│  │  │  - WebSocket real-time updates                   │  │ │
+│  │  │  - Single source of truth                        │  │ │
+│  │  └──────────────────────────────────────────────────┘  │ │
+│  │  ┌──────────────────────────────────────────────────┐  │ │
+│  │  │  SQLite Database (Production: PostgreSQL)        │  │ │
+│  │  │  - Users, equipment, checkouts                   │  │ │
+│  │  │  - Notes, reservations, admins                   │  │ │
+│  │  └──────────────────────────────────────────────────┘  │ │
+│  └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+           │                                    │
+           │ HTTPS API Calls                   │ HTTPS API Calls
+           │ (HTTP Basic Auth)                 │ (HTTP Basic Auth)
+           ▼                                    ▼
+    
+┌──────────────────────┐              ┌──────────────────────┐
+│  Main Kiosk Station  │              │  Downtown Station    │
+│  ┌────────────────┐  │              │  ┌────────────────┐  │
+│  │ kiosk_gui.py   │  │              │  │ kiosk_gui.py   │  │
+│  │ (Pure Client)  │  │              │  │ (Pure Client)  │  │
+│  │ - NO database  │  │              │  │ - NO database  │  │
+│  │ - API calls    │  │              │  │ - API calls    │  │
+│  │ - RFID reader  │  │              │  │ - RFID reader  │  │
+│  └────────────────┘  │              │  └────────────────┘  │
+└──────────────────────┘              └──────────────────────┘
 ```
 
-Each kiosk configured with:
-- `SERVER_URL`: Central server address
-- `KIOSK_USER` and `KIOSK_PASS`: Authentication credentials
-- Unique `kiosk_id` in `kiosk_gui.py` constructor
+**Key Architecture Principles:**
+- **Server owns the database**: Single source of truth
+- **Kiosk is stateless**: 100% API-based, no local data persistence
+- **API-first design**: All operations go through REST endpoints
+- **Real-time updates**: WebSocket pushes changes to dashboard
+- **Multi-kiosk ready**: Each kiosk has unique ID for tracking
 
 ## Multi-Kiosk Deployment
 
@@ -377,13 +467,6 @@ All checkouts/checkins automatically record which kiosk was used:
 - Useful for tracking where equipment was last seen
 - Helps identify usage patterns by location
 
-
-**Offline Mode:**
-- Kiosks write to local SQLite database when server unavailable
-- Transactions queued in `offline_queue.db`
-- Auto-sync every 30 seconds when server reconnects
-- Status bar shows "⚠️ OFFLINE MODE (X pending)"
-
 ## Hardware Requirements
 
 ### Server
@@ -406,51 +489,91 @@ All checkouts/checkins automatically record which kiosk was used:
 ## File Structure
 ```
 checkout-system/
-├── app.py                 # Flask web server
-├── kiosk_gui.py          # Kiosk interface
-├── database.py           # Database schema and connection
-├── offline_queue.py      # Offline transaction queue
+├── app.py                      # Flask web server & API
+├── kiosk_gui.py               # Kiosk interface (pure API client)
+├── database.py                # Database schema and connection
 ├── templates/
-│   ├── index.html        # Main dashboard (category tabs)
-│   ├── admin.html        # Admin panel (tabbed interface)
-│   ├── reserve_fob.html  # Reservation form
-│   ├── add_note.html     # Add note form
-│   ├── edit_note.html    # Edit note with expiration
-│   └── manage_admins.html # Admin user management
-├── Start_Kiosk.bat       # Windows launcher
-├── start_kiosk.sh        # Linux launcher
-├── Launch_Kiosk.desktop  # Raspberry Pi desktop shortcut
-├── key_checkout.db       # SQLite database (dev only)
-├── offline_queue.db      # Offline transaction queue
-├── requirements.txt      # Python dependencies
-├── Dockerfile            # Container build
-├── DEPLOYMENT.md         # Production deployment guide
-└── README.md            # This file
+│   ├── index.html             # Main dashboard (category tabs)
+│   ├── admin.html             # Admin panel (tabbed interface)
+│   ├── admin_login.html       # Admin login (dev mode only)
+│   ├── reserve_fob.html       # Reservation form
+│   ├── add_note.html          # Add note form
+│   ├── edit_note.html         # Edit note with expiration
+│   └── manage_admins.html     # Admin user management
+├── Start_Kiosk.bat            # Windows main station launcher
+├── Start_Trikke_Kiosk.bat     # Windows downtown launcher
+├── start_kiosk.sh             # Linux launcher
+├── .dockerignore              # Docker build exclusions
+├── Dockerfile                 # Container build
+├── key_checkout.db            # SQLite database (created on first run)
+├── requirements.txt           # Python dependencies
+├── README.md                  # This file
+├── DEPLOYMENT.md              # Production deployment guide
+├── IT_DEPLOYMENT_CHECKLIST.md # IT deployment checklist
+└── KIOSK_INSTALLATION.md      # Kiosk setup guide
 ```
 
-## API Endpoints
+## API Endpoints (Complete List)
 
 ### Public
 - `GET /` - Main dashboard
+- `GET /api/status` - Get current system status (JSON, unauthenticated for polling)
 
-### Admin (authenticated)
+### Admin (OKTA header or password auth)
 - `GET /admin` - Admin dashboard (tabbed interface)
+- `GET /admin/login` - Password login (only if ADMIN_PASSWORD set and not in OKTA mode)
+- `GET /admin/logout` - Logout
 - `GET /admin/manage_admins` - Admin user management
 - `POST /admin/user/add` - Add user
 - `POST /admin/fob/add` - Add equipment
-- `GET /admin/export/history` - Export CSV
+- `POST /admin/user/deactivate/<id>` - Deactivate user
+- `POST /admin/user/activate/<id>` - Activate user
+- `POST /admin/fob/deactivate/<id>` - Deactivate equipment
+- `POST /admin/fob/activate/<id>` - Activate equipment
+- `GET /admin/export/history` - Export checkout history CSV
 - `POST /admin/fob/reserve/<id>` - Create reservation
 - `GET /admin/fob/barcode/<id>` - Generate barcode
 - `POST /admin/fob/note/add/<id>` - Add note
 - `POST /admin/fob/note/edit/<id>` - Edit note and expiration
-- `GET /admin/fob/note/expire/<id>` - Expire note now
+- `GET /admin/fob/note/expire/<id>` - Expire note immediately
 - `GET /admin/fob/note/delete/<id>` - Delete note
+- `POST /admin/admins/add` - Add admin user
+- `POST /admin/admins/delete/<id>` - Remove admin user
 
-### Kiosk (Basic Auth)
-- `POST /api/notify` - Trigger dashboard refresh
-- `GET /api/status` - Get current equipment status
-- `POST /api/offline_sync/checkout` - Sync offline checkout
-- `POST /api/offline_sync/checkin` - Sync offline checkin
+### Kiosk API (HTTP Basic Auth)
+**User/Equipment Registration:**
+- `POST /api/user/register` - Register new user
+  - Body: `{card_id, first_name, last_name}`
+  - Returns: Full user object with ID
+- `POST /api/equipment/register` - Register new equipment
+  - Body: `{fob_id, vehicle_name, category, location}`
+  - Returns: Full equipment object with ID
+
+**Checkout/Checkin:**
+- `POST /api/checkout` - Check out single item
+  - Body: `{user_id, fob_id, kiosk_id}`
+- `POST /api/checkin` - Check in single item
+  - Body: `{fob_id}`
+- `POST /api/bulk_checkout` - Check out multiple items
+  - Body: `{user_id, fob_ids: [id1, id2, ...], kiosk_id}`
+  - Returns: `{checked_out: [...], errors: [...]}`
+
+**Special Functions:**
+- `POST /api/barns_transfer` - Transfer vehicle to The Barns
+  - Body: `{fob_id, kiosk_id}`
+  - Auto-creates "The Barns" user if needed
+- `POST /api/user/replace_card` - Replace user's keycard
+  - Body: `{user_id, new_card_id}`
+
+**Notes:**
+- `POST /api/note/add` - Add or replace note
+  - Body: `{fob_id, note_text, expires_at (optional ISO datetime)}`
+- `POST /api/note/delete` - Delete note
+  - Body: `{fob_id}`
+
+**System:**
+- `POST /api/notify` - Trigger dashboard refresh (WebSocket broadcast)
+
 
 ## Database Schema
 
@@ -473,7 +596,6 @@ checkout-system/
 **Session Timeout:** 30 seconds at kiosk  
 **Database Compact:** Weekly automatic VACUUM  
 **Timezone:** All timestamps in Central Time (America/Chicago)  
-**Offline Sync:** Every 30 seconds when server available
 
 ## Categories
 
@@ -496,7 +618,6 @@ Dashboard and admin panel organize equipment into:
 - Check Flask logs for errors
 - Monitor database size growth
 - Verify WebSocket connections
-- Check offline queue for stuck transactions
 
 ## Security Notes
 
@@ -519,14 +640,16 @@ Dashboard and admin panel organize equipment into:
 - No email notifications (add if needed)
 - No mobile app (web dashboard is mobile-responsive)
 - Note expiration granularity is page-load dependent (checks on refresh)
+- Network required for all operations (no offline mode)
 
 ## Troubleshooting
 
-**"Offline Mode" banner appears:**
-- Check `SERVER_URL` is correct in launcher script
-- Verify network connection to server
-- Confirm `KIOSK_USER` and `KIOSK_PASS` match server configuration
-- Test: `curl -u username:password SERVER_URL/api/status`
+**Kiosk can't connect to server:**
+- Verify SERVER_URL is correct in launcher script
+- Check network connectivity: `ping <server-ip>`
+- Verify KIOSK_USER and KIOSK_PASS match server configuration
+- Check server logs for authentication errors
+- Ensure server is running: `docker ps` (should show checkout-app)
 
 **RFID/Barcode scanner not working:**
 - Verify USB connection (try different port)
