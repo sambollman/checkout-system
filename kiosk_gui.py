@@ -203,7 +203,108 @@ class KioskGUI:
             except Exception as e:
                 return False, str(e)
 
+    def bulk_checkout_api(self, user_id, fob_ids):
+        """Bulk checkout multiple items via API"""
+        try:
+            response = requests.post(
+                f'{SERVER_URL}/api/bulk_checkout',
+                auth=(KIOSK_USER, KIOSK_PASS),
+                json={
+                    'user_id': user_id,
+                    'fob_ids': fob_ids,
+                    'kiosk_id': self.kiosk_id
+                },
+                timeout=10
+            )
+            if response.status_code == 201:
+                data = response.json()
+                return True, data
+            else:
+                error_msg = response.json().get('error', 'Unknown error')
+                return False, error_msg
+        except Exception as e:
+            return False, str(e)
+    
+    def barns_transfer_api(self, fob_id):
+        """Transfer to The Barns via API"""
+        try:
+            response = requests.post(
+                f'{SERVER_URL}/api/barns_transfer',
+                auth=(KIOSK_USER, KIOSK_PASS),
+                json={
+                    'fob_id': fob_id,
+                    'kiosk_id': self.kiosk_id
+                },
+                timeout=5
+            )
+            if response.status_code == 200:
+                return True, None
+            else:
+                error_msg = response.json().get('error', 'Unknown error')
+                return False, error_msg
+        except Exception as e:
+            return False, str(e)
+    
+    def replace_card_api(self, user_id, new_card_id):
+        """Replace user's card via API"""
+        try:
+            response = requests.post(
+                f'{SERVER_URL}/api/user/replace_card',
+                auth=(KIOSK_USER, KIOSK_PASS),
+                json={
+                    'user_id': user_id,
+                    'new_card_id': new_card_id
+                },
+                timeout=5
+            )
+            if response.status_code == 200:
+                return True, None
+            else:
+                error_msg = response.json().get('error', 'Unknown error')
+                return False, error_msg
+        except Exception as e:
+            return False, str(e)
+    
+    def delete_note_api(self, fob_id):
+        """Delete note via API"""
+        try:
+            response = requests.post(
+                f'{SERVER_URL}/api/note/delete',
+                auth=(KIOSK_USER, KIOSK_PASS),
+                json={
+                    'fob_id': fob_id
+                },
+                timeout=5
+            )
+            if response.status_code == 200:
+                return True, None
+            else:
+                error_msg = response.json().get('error', 'Unknown error')
+                return False, error_msg
+        except Exception as e:
+            return False, str(e)
 
+
+    def add_note_api(self, fob_id, note_text, expires_at=None):
+        """Add note via API"""
+        try:
+            response = requests.post(
+                f'{SERVER_URL}/api/note/add',
+                auth=(KIOSK_USER, KIOSK_PASS),
+                json={
+                    'fob_id': fob_id,
+                    'note_text': note_text,
+                    'expires_at': expires_at
+                },
+                timeout=5
+            )
+            if response.status_code == 201:
+                return True, None
+            else:
+                error_msg = response.json().get('error', 'Unknown error')
+                return False, error_msg
+        except Exception as e:
+            return False, str(e)
 
 
     def get_text_input(self, prompt, title="Input"):
@@ -825,49 +926,23 @@ class KioskGUI:
             self.show_error("No items to check out")
             return
         
-        chicago_tz = pytz.timezone('America/Chicago')
-        conn = get_db()
+        # Bulk checkout via API
+        fob_ids = [fob['id'] for fob in self.bulk_items]
+        success, result = self.bulk_checkout_api(self.current_user['id'], fob_ids)
         
-        checked_out_items = []
-        failed_items = []
+        if not success:
+            self.show_error(f"Bulk checkout failed: {result}")
+            return
         
-        for fob in self.bulk_items:
-            try:
-                # Check if already checked out
-                existing = conn.execute('''
-                    SELECT c.*, u.first_name, u.last_name 
-                    FROM checkouts c
-                    JOIN users u ON c.user_id = u.id
-                    WHERE c.fob_id = ? AND c.checked_in_at IS NULL
-                ''', (fob['id'],)).fetchone()
-                
-                if existing:
-                    # Handoff transfer
-                    if existing['user_id'] != self.current_user['id']:
-                        conn.execute('UPDATE checkouts SET checked_in_at = ? WHERE id = ?',
-                                    (datetime.now(chicago_tz), existing['id']))
-                        conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
-                                    (self.current_user['id'], fob['id'], self.kiosk_id, datetime.now(chicago_tz)))
-                        checked_out_items.append(fob['vehicle_name'])
-                    # else: already checked out to this user, skip
-                else:
-                    # Normal checkout
-                    conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
-                                (self.current_user['id'], fob['id'], self.kiosk_id, datetime.now(chicago_tz)))
-                    checked_out_items.append(fob['vehicle_name'])
-                    
-            except Exception as e:
-                print(f"Failed to checkout {fob['vehicle_name']}: {e}")
-                failed_items.append(fob['vehicle_name'])
+        # Get results
+        checked_out_fob_ids = result.get('checked_out', [])
+        errors = result.get('errors', [])
         
-        conn.commit()
-        conn.close()
+        # Map back to vehicle names
+        checked_out_items = [fob['vehicle_name'] for fob in self.bulk_items if fob['id'] in checked_out_fob_ids]
+        failed_items = [fob['vehicle_name'] for fob in self.bulk_items if fob['id'] not in checked_out_fob_ids]
         
-        # Notify server
-        try:
-            self.notify_server()
-        except:
-            pass
+        self.notify_server()
         
         # Show success screen
         self.clear_message_frame()
@@ -1007,16 +1082,6 @@ class KioskGUI:
         # Rest of existing barns_transfer code stays here...
         conn = get_db()
         
-        # Get "The Barns" user
-        barns_user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', ('BARNS',)).fetchone()
-        
-        if not barns_user:
-            # Create The Barns user if doesn't exist
-            conn.execute('INSERT INTO users (card_id, first_name, last_name, is_active) VALUES (?, ?, ?, ?)',
-                        ('BARNS', 'The', 'Barns', 1))
-            conn.commit()
-            barns_user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', ('BARNS',)).fetchone()
-        
         # Get all vehicles (not equipment)
         vehicles = conn.execute('''
             SELECT kf.*, c.id as checkout_id, c.checked_out_at, u.first_name, u.last_name
@@ -1099,59 +1164,28 @@ class KioskGUI:
     def perform_barns_transfer(self, vehicle):
         """Actually perform the barns transfer for a given vehicle"""
         from tkinter import Label
-        conn = get_db()
-        chicago_tz = pytz.timezone('America/Chicago')
         
-        # Get "The Barns" user
-        barns_user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', ('BARNS',)).fetchone()
+        # Transfer via API
+        success, error = self.barns_transfer_api(vehicle['id'])
         
-        if not barns_user:
-            # Create The Barns user if doesn't exist
-            conn.execute('INSERT INTO users (card_id, first_name, last_name, is_active) VALUES (?, ?, ?, ?)',
-                        ('BARNS', 'The', 'Barns', 1))
-            conn.commit()
-            barns_user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', ('BARNS',)).fetchone()
+        if not success:
+            self.show_error(f"Transfer failed: {error}")
+            return
         
-        # Get full vehicle info with checkout status
-        vehicle_full = conn.execute('''
-            SELECT kf.*, c.id as checkout_id
-            FROM key_fobs kf
-            LEFT JOIN checkouts c ON kf.id = c.fob_id AND c.checked_in_at IS NULL
-            WHERE kf.id = ?
-        ''', (vehicle['id'],)).fetchone()
+        self.notify_server()
         
-        try:
-            # If currently checked out, check it in first
-            if vehicle_full['checkout_id']:
-                conn.execute('UPDATE checkouts SET checked_in_at = ? WHERE id = ?',
-                            (datetime.now(chicago_tz), vehicle_full['checkout_id']))
-            
-            # Check out to The Barns
-            conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
-                        (barns_user['id'], vehicle['id'], self.kiosk_id, datetime.now(chicago_tz)))
-            conn.commit()
-            conn.close()
-            
-            print("🔔 About to call notify_server...")
-            self.notify_server()
-            print("✅ notify_server completed")
-            
-            # Show success
-            self.clear_message_frame()
-            
-            Label(self.message_frame, text="✅", font=font.Font(size=120),
-                  fg='#4CAF50', bg='black').pack(pady=(50, 30))
-            
-            Label(self.message_frame, 
-                  text=f"{vehicle['vehicle_name']}\ntransferred to The Barns",
-                  font=self.header_font, fg='white', bg='black',
-                  justify='center').pack()
-            
-            self.root.after(3000, self.show_welcome)
-            
-        except Exception as e:
-            conn.close()
-            self.show_error(f"Transfer failed: {e}")
+        # Show success
+        self.clear_message_frame()
+        
+        Label(self.message_frame, text="✅", font=font.Font(size=120),
+              fg='#4CAF50', bg='black').pack(pady=(50, 30))
+        
+        Label(self.message_frame, 
+              text=f"{vehicle['vehicle_name']}\ntransferred to The Barns",
+              font=self.header_font, fg='white', bg='black',
+              justify='center').pack()
+        
+        self.root.after(3000, self.show_welcome)
 
 
     def show_user_greeting(self, user):
@@ -1378,11 +1412,14 @@ class KioskGUI:
                 self.show_error("This card is already registered to someone else")
                 return
             
-            # Update the card ID
-            conn.execute('UPDATE users SET card_id = ? WHERE id = ?',
-                        (card_id, self.replace_item['id']))
-            conn.commit()
-            conn.close()
+            # Replace card via API
+            success, error = self.replace_card_api(self.replace_item['id'], card_id)
+            
+            if not success:
+                self.replace_mode = None
+                self.replace_item = None
+                self.show_error(f"Card replacement failed: {error}")
+                return
             
             # Show success
             self.clear_message_frame()
@@ -1422,6 +1459,7 @@ class KioskGUI:
             # Return to welcome after 3 seconds
             self.root.after(3000, self.show_welcome)
             return
+
             # **NEW: Check if in bulk checkout mode**
             if self.bulk_checkout_mode and not self.current_user:
                 conn = get_db()
@@ -2183,10 +2221,11 @@ class KioskGUI:
             if result[0] == 'delete':
                 # Delete the note
                 chicago_tz = pytz.timezone('America/Chicago')
-                conn = get_db()
-                conn.execute('DELETE FROM notes WHERE fob_id = ?', (fob['id'],))
-                conn.commit()
-                conn.close()
+                # Delete note via API
+                success, error = self.delete_note_api(fob['id'])
+                if not success:
+                    self.show_error(f"Failed to delete note: {error}")
+                    return
                 
                 self.notify_server()
                 
@@ -2337,19 +2376,11 @@ class KioskGUI:
         if result['note']:
             # Save note
             chicago_tz = pytz.timezone('America/Chicago')
-            conn = get_db()
-            
-            # Delete existing note for this fob (one note at a time)
-            conn.execute('DELETE FROM notes WHERE fob_id = ?', (fob['id'],))
-            
-            # Insert new note
-            conn.execute('''
-                INSERT INTO notes (fob_id, note_text, created_at, created_by, expires_at)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (fob['id'], result['note'], datetime.now(chicago_tz).isoformat(), 'kiosk', result['expires_at']))
-            
-            conn.commit()
-            conn.close()
+            # Add note via API
+            success, error = self.add_note_api(fob['id'], result['note'], result['expires_at'])
+            if not success:
+                self.show_error(f"Failed to add note: {error}")
+                return
             
             self.notify_server()
             

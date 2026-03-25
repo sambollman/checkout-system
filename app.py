@@ -549,6 +549,241 @@ if ADMIN_PASSWORD and not OKTA_HEADER:
         
         return render_template('admin_login.html')
 
+@app.route('/api/bulk_checkout', methods=['POST'])
+@require_kiosk_auth
+def api_bulk_checkout():
+    """Bulk checkout multiple items to a user"""
+    data = request.get_json()
+    
+    user_id = data.get('user_id')
+    fob_ids = data.get('fob_ids', [])  # List of fob table IDs
+    kiosk_id = data.get('kiosk_id', 'station')
+    
+    if not user_id or not fob_ids:
+        return {'error': 'Missing user_id or fob_ids'}, 400
+    
+    chicago_tz = pytz.timezone('America/Chicago')
+    conn = get_db()
+    
+    checked_out = []
+    errors = []
+    
+    try:
+        for fob_id in fob_ids:
+            try:
+                # Check if already checked out
+                existing = conn.execute('''
+                    SELECT c.*, u.id as user_id
+                    FROM checkouts c
+                    JOIN users u ON c.user_id = u.id
+                    WHERE c.fob_id = ? AND c.checked_in_at IS NULL
+                ''', (fob_id,)).fetchone()
+                
+                if existing:
+                    # Handoff transfer
+                    if existing['user_id'] != user_id:
+                        # Check in from previous user
+                        conn.execute('''
+                            UPDATE checkouts SET checked_in_at = ? WHERE id = ?
+                        ''', (datetime.now(chicago_tz).isoformat(), existing['id']))
+                        # Check out to new user
+                        conn.execute('''
+                            INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at)
+                            VALUES (?, ?, ?, ?)
+                        ''', (user_id, fob_id, kiosk_id, datetime.now(chicago_tz).isoformat()))
+                        checked_out.append(fob_id)
+                    # else: already checked out to this user, skip
+                else:
+                    # Normal checkout
+                    conn.execute('''
+                        INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at)
+                        VALUES (?, ?, ?, ?)
+                    ''', (user_id, fob_id, kiosk_id, datetime.now(chicago_tz).isoformat()))
+                    checked_out.append(fob_id)
+                    
+            except Exception as e:
+                errors.append({'fob_id': fob_id, 'error': str(e)})
+        
+        conn.commit()
+        conn.close()
+        
+        # Broadcast update
+        socketio.emit('status_update', api_status())
+        
+        return {
+            'status': 'success',
+            'checked_out': checked_out,
+            'errors': errors
+        }, 201
+        
+    except Exception as e:
+        conn.close()
+        return {'error': str(e)}, 500
+
+@app.route('/api/barns_transfer', methods=['POST'])
+@require_kiosk_auth
+def api_barns_transfer():
+    """Transfer a vehicle to The Barns"""
+    data = request.get_json()
+    
+    fob_id = data.get('fob_id')  # key_fobs table ID
+    kiosk_id = data.get('kiosk_id', 'station')
+    
+    if not fob_id:
+        return {'error': 'Missing fob_id'}, 400
+    
+    chicago_tz = pytz.timezone('America/Chicago')
+    conn = get_db()
+    
+    try:
+        # Get or create The Barns user
+        barns_user = conn.execute('''
+            SELECT * FROM users WHERE card_id = ? COLLATE NOCASE
+        ''', ('BARNS',)).fetchone()
+        
+        if not barns_user:
+            conn.execute('''
+                INSERT INTO users (card_id, first_name, last_name, is_active)
+                VALUES (?, ?, ?, ?)
+            ''', ('BARNS', 'The', 'Barns', 1))
+            conn.commit()
+            barns_user = conn.execute('''
+                SELECT * FROM users WHERE card_id = ? COLLATE NOCASE
+            ''', ('BARNS',)).fetchone()
+        
+        # Check current checkout status
+        current_checkout = conn.execute('''
+            SELECT * FROM checkouts WHERE fob_id = ? AND checked_in_at IS NULL
+        ''', (fob_id,)).fetchone()
+        
+        if current_checkout:
+            # Check in from current user
+            conn.execute('''
+                UPDATE checkouts SET checked_in_at = ? WHERE id = ?
+            ''', (datetime.now(chicago_tz).isoformat(), current_checkout['id']))
+        
+        # Check out to The Barns
+        conn.execute('''
+            INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at)
+            VALUES (?, ?, ?, ?)
+        ''', (barns_user['id'], fob_id, kiosk_id, datetime.now(chicago_tz).isoformat()))
+        
+        conn.commit()
+        conn.close()
+        
+        # Broadcast update
+        socketio.emit('status_update', api_status())
+        
+        return {'status': 'success', 'message': 'Transferred to The Barns'}, 200
+        
+    except Exception as e:
+        conn.close()
+        return {'error': str(e)}, 500
+
+@app.route('/api/user/replace_card', methods=['POST'])
+@require_kiosk_auth
+def api_replace_card():
+    """Replace a user's card ID"""
+    data = request.get_json()
+    
+    user_id = data.get('user_id')
+    new_card_id = data.get('new_card_id')
+    
+    if not user_id or not new_card_id:
+        return {'error': 'Missing user_id or new_card_id'}, 400
+    
+    conn = get_db()
+    
+    try:
+        # Check if new card ID already exists
+        existing = conn.execute('''
+            SELECT * FROM users WHERE card_id = ? COLLATE NOCASE
+        ''', (new_card_id,)).fetchone()
+        
+        if existing:
+            conn.close()
+            return {'error': 'Card ID already in use'}, 400
+        
+        # Update the card ID
+        conn.execute('''
+            UPDATE users SET card_id = ? WHERE id = ?
+        ''', (new_card_id, user_id))
+        conn.commit()
+        conn.close()
+        
+        return {'status': 'success', 'message': 'Card replaced'}, 200
+        
+    except Exception as e:
+        conn.close()
+        return {'error': str(e)}, 500
+
+@app.route('/api/note/delete', methods=['POST'])
+@require_kiosk_auth
+def api_delete_note():
+    """Delete a note from a fob"""
+    data = request.get_json()
+    
+    fob_id = data.get('fob_id')  # key_fobs table ID
+    
+    if not fob_id:
+        return {'error': 'Missing fob_id'}, 400
+    
+    conn = get_db()
+    
+    try:
+        conn.execute('DELETE FROM notes WHERE fob_id = ?', (fob_id,))
+        conn.commit()
+        conn.close()
+        
+        # Broadcast update
+        socketio.emit('status_update', api_status())
+        
+        return {'status': 'success', 'message': 'Note deleted'}, 200
+        
+    except Exception as e:
+        conn.close()
+        return {'error': str(e)}, 500
+
+@app.route('/api/note/add', methods=['POST'])
+@require_kiosk_auth
+def api_add_note():
+    """Add or replace a note on a fob"""
+    data = request.get_json()
+    
+    fob_id = data.get('fob_id')  # key_fobs table ID
+    note_text = data.get('note_text')
+    expires_at = data.get('expires_at')  # Optional ISO datetime string
+    
+    if not fob_id or not note_text:
+        return {'error': 'Missing fob_id or note_text'}, 400
+    
+    chicago_tz = pytz.timezone('America/Chicago')
+    conn = get_db()
+    
+    try:
+        # Delete existing note (one note per fob)
+        conn.execute('DELETE FROM notes WHERE fob_id = ?', (fob_id,))
+        
+        # Insert new note
+        conn.execute('''
+            INSERT INTO notes (fob_id, note_text, created_at, created_by, expires_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (fob_id, note_text, datetime.now(chicago_tz).isoformat(), 'kiosk', expires_at))
+        
+        conn.commit()
+        conn.close()
+        
+        # Broadcast update
+        socketio.emit('status_update', api_status())
+        
+        return {'status': 'success', 'message': 'Note added'}, 201
+        
+    except Exception as e:
+        conn.close()
+        return {'error': str(e)}, 500
+
+
+
 @app.route('/admin/logout')
 def admin_logout():
     """Logout admin"""
