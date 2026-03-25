@@ -374,6 +374,93 @@ def api_notify():
     socketio.emit('status_update', api_status())
     return {'status': 'ok'}
 
+@app.route('/api/user/register', methods=['POST'])
+@require_kiosk_auth
+def register_user():
+    """Register a new user from kiosk"""
+    data = request.get_json()
+    
+    card_id = data.get('card_id')
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
+    
+    if not card_id or not first_name or not last_name:
+        return {'error': 'Missing required fields'}, 400
+    
+    chicago_tz = pytz.timezone('America/Chicago')
+    conn = get_db()
+    
+    # Check if card already exists
+    existing = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', (card_id,)).fetchone()
+    if existing:
+        conn.close()
+        return {'error': 'Card ID already registered'}, 400
+    
+    # Insert new user
+    try:
+        conn.execute('''
+            INSERT INTO users (card_id, first_name, last_name, registered_at, is_active)
+            VALUES (?, ?, ?, ?, 1)
+        ''', (card_id, first_name, last_name, datetime.now(chicago_tz).isoformat()))
+        conn.commit()
+
+        # Get the newly created user BEFORE closing connection
+        user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', (card_id,)).fetchone()
+        user_dict = dict(user)
+        conn.close()
+
+        return {
+            'status': 'success', 
+            'message': 'User registered successfully',
+            'user': user_dict
+        }, 201
+    except Exception as e:
+        conn.close()
+        return {'error': str(e)}, 500
+
+@app.route('/api/equipment/register', methods=['POST'])
+@require_kiosk_auth
+def register_equipment():
+    """Register new equipment from kiosk"""
+    data = request.get_json()
+    
+    fob_id = data.get('fob_id')
+    vehicle_name = data.get('vehicle_name')
+    category = data.get('category', 'Equipment')
+    location = data.get('location', 'Station')
+    
+    if not fob_id or not vehicle_name:
+        return {'error': 'Missing required fields'}, 400
+    
+    chicago_tz = pytz.timezone('America/Chicago')
+    conn = get_db()
+    
+    # Check if fob already exists
+    existing = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE', (fob_id,)).fetchone()
+    if existing:
+        conn.close()
+        return {'error': 'Fob ID already registered'}, 400
+    
+    # Insert new equipment
+    try:
+        conn.execute('''
+            INSERT INTO key_fobs (fob_id, vehicle_name, category, location, registered_at, is_active)
+            VALUES (?, ?, ?, ?, ?, 1)
+        ''', (fob_id, vehicle_name, category, location, datetime.now(chicago_tz).isoformat()))
+        conn.commit()
+        # Get the newly created equipment
+        equipment = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE', (fob_id,)).fetchone()
+        equipment_dict = dict(equipment)
+        conn.close()
+        return {
+            'status': 'success',
+            'message': 'Equipment registered successfully', 
+            'equipment': equipment_dict
+        }, 201
+    except Exception as e:
+        conn.close()
+        return {'error': str(e)}, 500
+
 # DEVELOPMENT ONLY - REMOVE in production (OKTA handles login)
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():

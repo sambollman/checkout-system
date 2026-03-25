@@ -121,6 +121,57 @@ class KioskGUI:
             return response.status_code == 200
         except:
             return False
+    def register_user_api(self, card_id, first_name, last_name):
+        """Register a new user via API"""
+        try:
+            response = requests.post(
+                f'{SERVER_URL}/api/user/register',
+                auth=(KIOSK_USER, KIOSK_PASS),
+                json={
+                    'card_id': card_id,
+                    'first_name': first_name,
+                    'last_name': last_name
+                },
+                timeout=5
+            )
+            print(f"DEBUG: API response status = {response.status_code}")
+            print(f"DEBUG: API response = {response.text}")
+
+            if response.status_code == 201:
+                data = response.json()
+                print(f"DEBUG: data = {data}")
+                print(f"DEBUG: user dict = {data.get('user')}")
+                return True, data['user']  # Return user dict on success
+            else:
+                error_msg = response.json().get('error', 'Unknown error')
+                return False, error_msg
+        except Exception as e:
+            print(f"DEBUG: Exception in register_user_api: {e}")
+            return False, str(e)
+    
+    def register_equipment_api(self, fob_id, vehicle_name, category, location):
+        """Register new equipment via API"""
+        try:
+            response = requests.post(
+                f'{SERVER_URL}/api/equipment/register',
+                auth=(KIOSK_USER, KIOSK_PASS),
+                json={
+                    'fob_id': fob_id,
+                    'vehicle_name': vehicle_name,
+                    'category': category,
+                    'location': location
+                },
+                timeout=5
+            )
+            if response.status_code == 201:
+                data = response.json()
+                return True, data['equipment'] # Return equipment dict on success
+            else:
+                error_msg = response.json().get('error', 'Unknown error')
+                return False, error_msg
+        except Exception as e:
+            return False, str(e)
+
 
     def get_text_input(self, prompt, title="Input"):
         """Show a dialog to get text input with larger text"""
@@ -1375,18 +1426,15 @@ class KioskGUI:
                     self.show_error("Registration cancelled")
                     return
                 
-                conn = get_db()
-                try:
-                    conn.execute('INSERT INTO users (card_id, first_name, last_name, registered_at) VALUES (?, ?, ?,?)',
-                                (card_id, first_name.strip(), last_name.strip(), datetime.now(pytz.timezone('America/Chicago'))))
-                    conn.commit()
-                    user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', (card_id,)).fetchone()
-                    conn.close()
-                except Exception as e:
-                    conn.close()
+                # Register user via API
+                success, error_or_response = self.register_user_api(card_id, first_name.strip(), last_name.strip())
+                if not success:
                     self.pending_fob = None
-                    self.show_error(f"Error registering user: {e}")
+                    self.show_error(f"Error registering user: {error_or_response}")
                     return
+                
+                # User data returned from API - no DB query needed!
+                user = error_or_response  # This is actually the response when success=True
             
             # Check out the pending fob - get fresh connection
             conn = get_db()
@@ -1453,18 +1501,16 @@ class KioskGUI:
                 return
             
             # Register the user
-            conn = get_db()
-            try:
-                conn.execute('INSERT INTO users (card_id, first_name, last_name, registered_at) VALUES (?, ?, ?,?)',
-                            (card_id, first_name.strip(), last_name.strip(), datetime.now(pytz.timezone('America/Chicago'))))
-                conn.commit()
-                user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', (card_id,)).fetchone()
-                conn.close()
-            except Exception as e:
-                conn.close()
-                self.show_error(f"Error registering user: {e}")
+            # Register user via API
+            success, result = self.register_user_api(card_id, first_name.strip(), last_name.strip())
+            if not success:
+                self.show_error(f"Error registering user: {result}")
                 return
-        
+            
+            # User data returned from API
+            user = result
+            print(f"DEBUG: user keys = {user.keys()}")
+            print(f"DEBUG: user = {user}")
         self.current_user = user
         self.last_scan_time = datetime.now()
         self.show_user_greeting(user)
@@ -1566,55 +1612,56 @@ class KioskGUI:
             self.last_scan_time = datetime.now()  # Reset timeout
 
 
-        # Register the fob
-            conn = get_db()
-            try:
-                conn.execute('INSERT INTO key_fobs (fob_id, vehicle_name, category, location, registered_at) VALUES (?, ?, ?, ?,?)',
-                            (fob_id, vehicle_name.strip(), category, location.strip(), datetime.now(pytz.timezone('America/Chicago'))))
-                conn.commit()
-                fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE', (fob_id,)).fetchone()
-                conn.close()
-                
-                self.notify_server()
+            # Register the equipment via API
+            success, result = self.register_equipment_api(fob_id, vehicle_name.strip(), category, location.strip())
+            if not success:
+                self.show_error(f"Error registering equipment: {result}")
+                return
+            
+            # Equipment data returned from API
+            fob = result
+            print(f"DEBUT: fob keys = {fob.keys()}")
+            print(f"DEBUG: fob = {fob}")    
+            self.notify_server()
    
-                # If user already scanned card, check out the new fob immediately
-                if self.current_user:
-                    conn = get_db()
-                    try:
-                        if not self.check_server_available():
-                            raise Exception("Server offline")
-                        conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
-                            (self.current_user['id'], fob['id'], self.kiosk_id, datetime.now(pytz.timezone('America/Chicago'))))
-                        conn.commit()
-                        conn.close()
-                        self.notify_server()
-                    except Exception as e:
-                        # Server offline - write locally AND queue for sync
-                        conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
-                            (self.current_user['id'], fob['id'], self.kiosk_id, datetime.now(pytz.timezone('America/Chicago'))))
-                        conn.commit()
-                        conn.close()
+            # If user already scanned card, check out the new fob immediately
+            if self.current_user:
+                conn = get_db()
+                try:
+                    if not self.check_server_available():
+                        raise Exception("Server offline")
+                    conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
+                        (self.current_user['id'], fob['id'], self.kiosk_id, datetime.now(pytz.timezone('America/Chicago'))))
+                    conn.commit()
+                    conn.close()
+                    self.notify_server()
+                except Exception as e:
+                    # Server offline - write locally AND queue for sync
+                    conn.execute('INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
+                        (self.current_user['id'], fob['id'], self.kiosk_id, datetime.now(pytz.timezone('America/Chicago'))))
+                    conn.commit()
+                    conn.close()
                         
-                        # Also queue for server sync
-                        user_info = {
-                            'card_id': self.current_user['card_id'],
-                            'first_name': self.current_user['first_name'],
-                            'last_name': self.current_user['last_name']
-                        }
-                        fob_info = {
-                            'fob_id': fob['fob_id'],
-                            'vehicle_name': fob['vehicle_name']
-                        }
-                        count = queue_transaction('checkout', user_info, fob_info, self.kiosk_id)
-                        self.go_offline()
-                        self.update_offline_count()
-                        print(f"⚠️ Queued checkout offline ({count} pending): {e}")
+                    # Also queue for server sync
+                    user_info = {
+                        'card_id': self.current_user['card_id'],
+                        'first_name': self.current_user['first_name'],
+                        'last_name': self.current_user['last_name']
+                    }
+                    fob_info = {
+                        'fob_id': fob['fob_id'],
+                        'vehicle_name': fob['vehicle_name']
+                    }
+                    count = queue_transaction('checkout', user_info, fob_info, self.kiosk_id)
+                    self.go_offline()
+                    self.update_offline_count()
+                    print(f"⚠️ Queued checkout offline ({count} pending): {e}")
                     
-                    self.show_checkout_success(fob['vehicle_name'], fob['category'])
-                    self.current_user = None
-                    return
-                else:
-                    # No user scanned yet - show success and prompt
+                self.show_checkout_success(fob['vehicle_name'], fob['category'])
+                self.current_user = None
+                return
+            else:
+                # No user scanned yet - show success and prompt
                     self.clear_message_frame()
                     
                     icon_label = tk.Label(
@@ -1650,10 +1697,6 @@ class KioskGUI:
                     self.root.after(3000, self.show_welcome)
                     return
                     
-            except Exception as e:
-                conn.close()
-                self.show_error(f"Error registering fob: {e}")
-                return
         
         # Check if it's currently checked out
         conn = get_db()
