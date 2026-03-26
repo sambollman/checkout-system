@@ -762,9 +762,6 @@ body {
                 .catch(error => console.error('Error fetching status:', error));
         }
         
-        // Poll every 5 seconds as backup (in case WebSocket disconnects)
-        setInterval(fetchStatus, 5000);
-
         // Section collapse/expand
         function toggleSection(section) {
             const content = document.getElementById(section + 'Content');
