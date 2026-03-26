@@ -2192,8 +2192,17 @@ class KioskGUI:
             
             # Show expiration if set
             if existing_note['expires_at']:
-                Label(dialog, text=f"Expires: {existing_note['expires_at']}", 
-                      font=font.Font(size=14), bg='white', fg='#FF9800').pack(pady=(0, 20))
+                try:
+                    chicago_tz = pytz.timezone('America/Chicago')
+                    exp_dt = datetime.fromisoformat(existing_note['expires_at'])
+                    if exp_dt.tzinfo is not None:
+                        exp_dt = exp_dt.astimezone(chicago_tz)
+                    formatted_exp = exp_dt.strftime('%b %d, %Y %H:%M')  # Mar 25, 2026 21:15
+                    Label(dialog, text=f"Expires: {formatted_exp}", 
+                          font=font.Font(size=14), bg='white', fg='#FF9800').pack(pady=(0, 20))
+                except:
+                    Label(dialog, text=f"Expires: {existing_note['expires_at']}", 
+                          font=font.Font(size=14), bg='white', fg='#FF9800').pack(pady=(0, 20))
             else:
                 Label(dialog, text="No expiration set", 
                       font=font.Font(size=14), bg='white', fg='#666').pack(pady=(0, 20))
@@ -2271,7 +2280,7 @@ class KioskGUI:
                         # Combine date and time
                         chicago_tz = pytz.timezone('America/Chicago')
                         dt_str = f"{date_str} {time_str}"
-                        dt = datetime.strptime(dt_str, '%Y-%m-%d %H:%M')
+                        dt = datetime.strptime(dt_str, '%m/%d/%Y %H:%M')
                         dt_aware = chicago_tz.localize(dt)
                         result['expires_at'] = dt_aware.isoformat()
                 except Exception as e:
@@ -2328,7 +2337,7 @@ class KioskGUI:
         # Expiration input frame (hidden by default)
         expiration_frame = Frame(dialog, bg='white')
         
-        Label(expiration_frame, text="Date (YYYY-MM-DD):", 
+        Label(expiration_frame, text="Date (MM/DD/YYYY):", 
               font=font.Font(size=12), bg='white').pack(side='left', padx=5)
         
         # Default to tomorrow
@@ -2336,7 +2345,7 @@ class KioskGUI:
         tomorrow = datetime.now(chicago_tz) + timedelta(days=1)
         
         date_entry = Entry(expiration_frame, font=font.Font(size=14), width=12)
-        date_entry.insert(0, tomorrow.strftime('%Y-%m-%d'))
+        date_entry.insert(0, tomorrow.strftime('%m/%d/%Y'))
         date_entry.pack(side='left', padx=5)
         
         Label(expiration_frame, text="Time (HH:MM):", 
@@ -2352,7 +2361,7 @@ class KioskGUI:
             try:
                 exp_dt = datetime.fromisoformat(existing_note['expires_at'])
                 date_entry.delete(0, 'end')
-                date_entry.insert(0, exp_dt.strftime('%Y-%m-%d'))
+                date_entry.insert(0, exp_dt.strftime('%m/%d/%Y'))
                 time_entry.delete(0, 'end')
                 time_entry.insert(0, exp_dt.strftime('%H:%M'))
                 expiration_frame.pack(pady=10)
