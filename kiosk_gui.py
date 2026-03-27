@@ -265,6 +265,27 @@ class KioskGUI:
         except Exception as e:
             return False, str(e)
     
+    def replace_fob_api(self, equipment_id, new_fob_id):
+        """Replace fob ID via API"""
+        try:
+            response = requests.post(
+                f'{SERVER_URL}/api/equipment/replace_fob',
+                auth=(KIOSK_USER, KIOSK_PASS),
+                json={
+                    'equipment_id': equipment_id,
+                    'new_fob_id': new_fob_id
+                },
+                timeout=5
+            )
+            if response.status_code == 200:
+                return True, None
+            else:
+                error_msg = response.json().get('error', 'Unknown error')
+                return False, error_msg
+        except Exception as e:
+            return False, str(e)
+
+
     def delete_note_api(self, fob_id):
         """Delete note via API"""
         try:
@@ -305,6 +326,84 @@ class KioskGUI:
                 return False, error_msg
         except Exception as e:
             return False, str(e)
+
+    def lookup_api(self, lookup_type, identifier):
+        """Look up user, fob, or scan via API"""
+        try:
+            response = requests.post(
+                f'{SERVER_URL}/api/lookup',
+                auth=(KIOSK_USER, KIOSK_PASS),
+                json={
+                    'type': lookup_type,
+                    'id': identifier
+                },
+                timeout=5
+            )
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('found'):
+                    return True, data.get('data')
+                else:
+                    return False, None
+            else:
+                error_msg = response.json().get('error', 'Unknown error')
+                return False, error_msg
+        except Exception as e:
+            return False, str(e)
+    
+    def search_users_api(self, search_text):
+        """Search users via API"""
+        try:
+            response = requests.post(
+                f'{SERVER_URL}/api/search/users',
+                auth=(KIOSK_USER, KIOSK_PASS),
+                json={'search': search_text},
+                timeout=5
+            )
+            if response.status_code == 200:
+                data = response.json()
+                return True, data.get('users', [])
+            else:
+                error_msg = response.json().get('error', 'Unknown error')
+                return False, error_msg
+        except Exception as e:
+            return False, str(e)
+    
+    def search_equipment_api(self, search_text):
+        """Search equipment via API"""
+        try:
+            response = requests.post(
+                f'{SERVER_URL}/api/search/equipment',
+                auth=(KIOSK_USER, KIOSK_PASS),
+                json={'search': search_text},
+                timeout=5
+            )
+            if response.status_code == 200:
+                data = response.json()
+                return True, data.get('equipment', [])
+            else:
+                error_msg = response.json().get('error', 'Unknown error')
+                return False, error_msg
+        except Exception as e:
+            return False, str(e)
+
+    def list_equipment_api(self):
+        """List all equipment via API"""
+        try:
+            response = requests.get(
+                f'{SERVER_URL}/api/list/equipment',
+                auth=(KIOSK_USER, KIOSK_PASS),
+                timeout=5
+            )
+            if response.status_code == 200:
+                data = response.json()
+                return True, data.get('equipment', [])
+            else:
+                error_msg = response.json().get('error', 'Unknown error')
+                return False, error_msg
+        except Exception as e:
+            return False, str(e)
+
 
 
     def get_text_input(self, prompt, title="Input"):
@@ -390,15 +489,10 @@ class KioskGUI:
             self.show_welcome()
             return
         
-        # Search for user
-        conn = get_db()
-        users = conn.execute('''
-            SELECT * FROM users 
-            WHERE last_name LIKE ? OR card_id LIKE ?
-        ''', (f'%{search}%', f'%{search}%')).fetchall()
-        conn.close()
+        # Search for user via api
+        success, users = self.search_users_api(search)
         
-        if not users:
+        if not success or not users:
             self.show_error("No users found matching that search")
             return
         
@@ -521,15 +615,10 @@ class KioskGUI:
             self.show_welcome()
             return
         
-        # Search for fob
-        conn = get_db()
-        fobs = conn.execute('''
-            SELECT * FROM key_fobs 
-            WHERE vehicle_name LIKE ? AND is_active = 1
-        ''', (f'%{search}%',)).fetchall()
-        conn.close()
+        # Search for fob via api
+        success, fobs = self.search_equipment_api(search)
         
-        if not fobs:
+        if not success or not fobs:
             self.show_error("No equipment/vehicles found matching that search")
             return
         
@@ -1079,21 +1168,16 @@ class KioskGUI:
             self.show_welcome()
             return
         
-        # Rest of existing barns_transfer code stays here...
-        conn = get_db()
+        # Get all vehicles via API
+        success, all_equipment = self.list_equipment_api()
         
-        # Get all vehicles (not equipment)
-        vehicles = conn.execute('''
-            SELECT kf.*, c.id as checkout_id, c.checked_out_at, u.first_name, u.last_name
-            FROM key_fobs kf
-            LEFT JOIN checkouts c ON kf.id = c.fob_id AND c.checked_in_at IS NULL
-            LEFT JOIN users u ON c.user_id = u.id
-            WHERE kf.category IN ('Squad Cars', 'CSO Vehicles', 'CID Vehicles')
-            AND kf.is_active = 1
-            ORDER BY kf.vehicle_name
-        ''').fetchall()
+        if not success:
+            self.show_error(f"Failed to load vehicles: {all_equipment}")
+            return
         
-        conn.close()
+        # Filter to just vehicles (not equipment)
+        vehicles = [item for item in all_equipment 
+                   if item.get('category') in ('Squad Cars', 'CSO Vehicles', 'CID Vehicles')]
         
         if not vehicles:
             self.show_error("No vehicles found")
@@ -1345,17 +1429,15 @@ class KioskGUI:
     
     def process_scan(self, scan_data):
         """Process a scanned card or fob"""
-        # Check if we've seen this ID before
-        conn = get_db()
-        user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', (scan_data,)).fetchone()
-        fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE', (scan_data,)).fetchone()
-        conn.close()
+        # Look up via API
+        found, data = self.lookup_api('scan', scan_data)
         
-        # If it exists in either table, route accordingly
-        if user:
-            self.handle_card_scan(scan_data)
-        elif fob:
-            self.handle_fob_scan(scan_data)
+        if found and data:
+            # API returns type in the response, but let's check the data structure
+            if 'first_name' in data:  # It's a user
+                self.handle_card_scan(scan_data)
+            else:  # It's a fob
+                self.handle_fob_scan(scan_data)
         else:
             # Ask if card or equipment with custom larger dialog
             from tkinter import Toplevel, Button, Label
@@ -1402,11 +1484,9 @@ class KioskGUI:
         # Check if we're in replace mode
         if self.replace_mode == 'card' and self.replace_item:
             # This is the NEW card being scanned
-            conn = get_db()
-            # Check if new card already exists
-            existing = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', (card_id,)).fetchone()
-            if existing:
-                conn.close()
+            # Check if new card already exists via API
+            found, existing = self.lookup_api('user', card_id)
+            if found and existing:
                 self.replace_mode = None
                 self.replace_item = None
                 self.show_error("This card is already registered to someone else")
@@ -1462,29 +1542,24 @@ class KioskGUI:
 
             # **NEW: Check if in bulk checkout mode**
             if self.bulk_checkout_mode and not self.current_user:
-                conn = get_db()
-                user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE AND is_active = 1', 
-                               (card_id,)).fetchone()
-                conn.close()
+                # Look up user via API
+                found, user = self.lookup_api('user', card_id)
         
-                if not user:
+                if not found or not user:
                     self.show_error("Unknown card. Please register at the admin panel.")
                     return
         
-            self.current_user = dict(user)
-            self.show_bulk_scanning()
-            return
+                self.current_user = (user)
+                self.show_bulk_scanning()
+                return
 
 
         # Check if there's a pending fob to check out
         if hasattr(self, 'pending_fob') and self.pending_fob:
-            conn = get_db()
-            user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE AND is_active = 1', 
-                               (card_id,)).fetchone()
-            conn.close()
-            if not user:
+            # Look up user via API
+            found, user = self.lookup_api('user', card_id)
+            if not found or not user:
                 # New user - register them first
-                conn.close()
                 first_name = self.get_text_input("First time? Enter your first name:")
                 if not first_name:
                     self.pending_fob = None
@@ -1523,12 +1598,10 @@ class KioskGUI:
 
             
 
-        conn = get_db()
-        user = conn.execute('SELECT * FROM users WHERE card_id = ? COLLATE NOCASE AND is_active = 1', 
-                           (card_id,)).fetchone()
-        conn.close()
+        # Look up user via API
+        found, user = self.lookup_api('user', card_id)
         
-        if not user:
+        if not found or not user:
             # New user - register them
             first_name = self.get_text_input("First time? Enter your first name:")
             self.last_scan_time = datetime.now()  # Reset timeout
@@ -1560,28 +1633,86 @@ class KioskGUI:
 
     def handle_fob_scan(self, fob_id):
         """Handle a fob scan"""
-        conn = get_db()
-        
         # Check if in note mode
         if self.note_mode:
             print("DEBUG: In note mode, fob_id:", fob_id)
-            fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE AND is_active = 1', (fob_id,)).fetchone()
+            found, fob = self.lookup_api('fob', fob_id)
             
-            if not fob:
-                conn.close()
+            if not found or not fob:
                 self.show_welcome()
                 return
             
             self.show_note_input(fob)
-            conn.close()
             return
+
+        # Check if we're in fob replace mode
+        if self.replace_mode == 'fob' and self.replace_item:
+            # This is the NEW fob being scanned
+            # Check if new fob already exists via API
+            found, existing = self.lookup_api('fob', fob_id)
+            if found and existing:
+                self.replace_mode = None
+                self.replace_item = None
+                self.show_error("This fob is already registered to another item")
+                return
+            
+            # Replace fob via API
+            success, error = self.replace_fob_api(self.replace_item['id'], fob_id)
+            
+            if not success:
+                self.replace_mode = None
+                self.replace_item = None
+                self.show_error(f"Fob replacement failed: {error}")
+                return
+            
+            # Show success
+            self.clear_message_frame()
+            
+            icon_label = tk.Label(
+                self.message_frame,
+                text="✅",
+                font=font.Font(size=120),
+                fg='#4CAF50',
+                bg='black'
+            )
+            icon_label.pack(pady=(50, 30))
+            
+            msg_label = tk.Label(
+                self.message_frame,
+                text="Fob replaced successfully!",
+                font=self.header_font,
+                fg='#4CAF50',
+                bg='black'
+            )
+            msg_label.pack(pady=(0, 20))
+            
+            detail_label = tk.Label(
+                self.message_frame,
+                text=f"{self.replace_item['vehicle_name']}\nNew fob registered",
+                font=self.body_font,
+                fg='white',
+                bg='black',
+                justify='center'
+            )
+            detail_label.pack()
+            
+            self.instructions_label.config(text="")
+            self.replace_mode = None
+            self.replace_item = None
+            
+            # Return to welcome after 3 seconds
+            self.root.after(3000, self.show_welcome)
+            return
+
 
         # Check if in bulk checkout mode
         if self.bulk_checkout_mode and self.current_user:
-            conn = get_db()
-            fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE AND is_active = 1', 
-                          (fob_id,)).fetchone()
-            conn.close()
+            found, fob = self.lookup_api('fob', fob_id)
+            if found and fob:
+                self.add_bulk_item(fob)
+            else:
+                self.show_error("Unknown fob")
+            return
             if fob:
                 self.add_bulk_item(dict(fob))
             else:
@@ -1590,10 +1721,8 @@ class KioskGUI:
 
         # Check if in Barns scan mode
         if self.barns_scan_mode:
-            fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE AND is_active = 1', (fob_id,)).fetchone()
-            conn.close()
-            
-            if not fob:
+            found, fob = self.lookup_api('fob', fob_id)
+            if not found or not fob:
                 self.show_error("Equipment not found")
                 return
             
@@ -1601,13 +1730,12 @@ class KioskGUI:
             self.barns_scan_mode = False
             self.perform_barns_transfer(fob)
             return
-
-        fob = conn.execute('SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE AND is_active = 1', 
-                          (fob_id,)).fetchone()
         
-        if not fob:
+        # Look up fob via API
+        found, fob = self.lookup_api('fob', fob_id)
+        
+        if not found or not fob:
             # New fob - register it
-            conn.close()
             
             vehicle_name = self.get_text_input("New Key Fob! What is this for?\n(e.g., 'Squad 91', 'Thermal 2')")
             self.last_scan_time = datetime.now() # reset timeout
@@ -1716,14 +1844,16 @@ class KioskGUI:
                     return
                     
         
-        # Check if it's currently checked out
-        conn = get_db()
-        checkout = conn.execute('''
-            SELECT c.*, u.first_name, u.last_name
-            FROM checkouts c
-            JOIN users u ON c.user_id = u.id
-            WHERE c.fob_id = ? AND c.checked_in_at IS NULL
-        ''', (fob['id'],)).fetchone()
+        # Check if it's currently checked out (lookup API already includes this info)
+        checkout = None
+        if fob.get('checkout_id'):
+            # Fob is checked out - create checkout dict from fob data
+            checkout = {
+                'id': fob['checkout_id'],
+                'user_id': fob.get('user_id'),
+                'first_name': fob.get('first_name'),
+                'last_name': fob.get('last_name')
+            }
         
         if checkout:
             # Check if there's a different user trying to take it
@@ -1732,18 +1862,15 @@ class KioskGUI:
                 # First check in
                 success, error = self.checkin_api(fob['fob_id'])
                 if not success:
-                    conn.close()
                     self.show_error(f"Check-in failed: {error}")
                     return
                 
                 # Then check out to new user
                 success, error = self.checkout_api(self.current_user['id'], fob['id'])
                 if not success:
-                    conn.close()
                     self.show_error(f"Checkout failed: {error}")
                     return
                 
-                conn.close()
                 self.notify_server()
                 
                 self.clear_message_frame()
@@ -1786,11 +1913,9 @@ class KioskGUI:
                 # Check in via API
                 success, error = self.checkin_api(fob['fob_id'])
                 if not success:
-                    conn.close()
                     self.show_error(f"Check-in failed: {error}")
                     return
                 
-                conn.close()
                 self.notify_server()
                 
                 was_with = f"{checkout['first_name']} {checkout['last_name']}"
@@ -1806,31 +1931,9 @@ class KioskGUI:
                 chicago_tz = pytz.timezone('America/Chicago')
                 now = datetime.now(chicago_tz)
                 
-                # Get all reservations for this fob
-                all_reservations = conn.execute('''
-                    SELECT r.*, u.first_name, u.last_name
-                    FROM reservations r
-                    LEFT JOIN users u ON r.user_id = u.id
-                    WHERE r.fob_id = ?
-                ''', (fob['id'],)).fetchall()
-                
-                # Check if any are active (in Python to handle timezones)
-                reservation = None
-                print(f"DEBUG: Checking {len(all_reservations)} reservations for fob {fob['id']}")
-                for res in all_reservations:
-                    try:
-                        res_dt = datetime.fromisoformat(res['reserved_datetime'])
-                        display_start = res_dt - timedelta(hours=res['display_hours_before'])
-                        print(f"DEBUG: Reservation time: {res_dt}, Display start: {display_start}, Now: {now}")
-                        if res_dt > now and display_start <= now:
-                            reservation = res
-                            print(f"DEBUG: Found active reservation!")
-                            break
-                    except Exception as e:
-                        print(f"DEBUG: Error checking reservation: {e}")
-                        pass
-                
-                print(f"DEBUG: Final reservation: {reservation}")
+                # Get reservation from fob data (already included from API lookup)
+                reservation = fob.get('reservation')
+                print(f"DEBUG: Reservation from API: {reservation}")
                 
                 if reservation:
                     reserved_for = ""
@@ -1896,7 +1999,6 @@ class KioskGUI:
                     dialog.wait_window()
                     
                     if not result[0]:
-                        conn.close()
                         self.show_welcome()
                         return
 
@@ -1905,16 +2007,13 @@ class KioskGUI:
                 # Checkout via API
                 success, error = self.checkout_api(self.current_user['id'], fob['id'])
                 if not success:
-                    conn.close()
                     self.show_error(f"Checkout failed: {error}")
                     return
                 
-                conn.close()
                 self.notify_server()
                 self.show_checkout_success(fob['vehicle_name'], fob['category'])
                 self.current_user = None
             else:
-                conn.close()
                 
                 # Show available message and wait for card
                 self.clear_message_frame()
@@ -2059,19 +2158,10 @@ class KioskGUI:
     def show_equipment_list_for_note(self):
         """Show list of all equipment to select for adding note"""
         from tkinter import Toplevel, Button, Label, Listbox, Scrollbar, SINGLE
+        # Get all active equipment via API
+        success, all_items = self.list_equipment_api()
         
-        conn = get_db()
-        
-        # Get all active equipment and vehicles
-        all_items = conn.execute('''
-            SELECT * FROM key_fobs
-            WHERE is_active = 1
-            ORDER BY category, vehicle_name
-        ''').fetchall()
-        
-        conn.close()
-        
-        if not all_items:
+        if not success or not all_items:
             self.show_error("No equipment found")
             return
         
@@ -2082,7 +2172,13 @@ class KioskGUI:
             selection = listbox.curselection()
             if selection and selection[0] in item_indices:
                 actual_index = item_indices[selection[0]]
-                result[0] = all_items[actual_index]
+                selected_item = all_items[actual_index]
+                # Do fresh lookup to get note data
+                found, fob_with_note = self.lookup_api('fob', selected_item['fob_id'])
+                if found and fob_with_note:
+                    result[0] = fob_with_note
+                else:
+                    result[0] = selected_item
                 dialog.destroy()
         
         dialog = Toplevel(self.root)
@@ -2152,10 +2248,8 @@ class KioskGUI:
         from tkinter import Toplevel, Label, Text, Button, Checkbutton, BooleanVar, Frame, Entry
         from datetime import datetime, timedelta
         
-        # Check if note already exists
-        conn = get_db()
-        existing_note = conn.execute('SELECT * FROM notes WHERE fob_id = ?', (fob['id'],)).fetchone()
-        conn.close()
+        # Check if note already exists (from fob data)
+        existing_note = fob.get('note')
         
         if existing_note:
             # Show replace/delete dialog

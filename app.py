@@ -553,6 +553,185 @@ def api_checkin():
         conn.close()
         return {'error': str(e)}, 500
 
+@app.route('/api/lookup', methods=['POST'])
+@require_kiosk_auth
+def api_lookup():
+    """Lookup user, equipment, or checkout status by ID"""
+    data = request.get_json()
+    
+    lookup_type = data.get('type')  # 'user', 'fob', 'scan'
+    identifier = data.get('id')
+    
+    if not lookup_type or not identifier:
+        return {'error': 'Missing type or id'}, 400
+    
+    conn = get_db()
+    chicago_tz = pytz.timezone('America/Chicago')
+    
+    try:
+        if lookup_type == 'user':
+            # Look up user by card_id
+            user = conn.execute('''
+                SELECT * FROM users 
+                WHERE card_id = ? COLLATE NOCASE AND is_active = 1
+            ''', (identifier,)).fetchone()
+            conn.close()
+            
+            if user:
+                return {'found': True, 'type': 'user', 'data': dict(user)}, 200
+            else:
+                return {'found': False}, 200
+                
+        elif lookup_type == 'fob':
+            # Look up equipment by fob_id with checkout status
+            result = conn.execute('''
+                SELECT kf.*, c.id as checkout_id, c.checked_out_at, 
+                       u.first_name, u.last_name, u.id as user_id
+                FROM key_fobs kf
+                LEFT JOIN checkouts c ON kf.id = c.fob_id AND c.checked_in_at IS NULL
+                LEFT JOIN users u ON c.user_id = u.id
+                WHERE kf.fob_id = ? COLLATE NOCASE AND kf.is_active = 1
+            ''', (identifier,)).fetchone()
+            
+            # Get note if exists
+            note = None
+            reservation = None
+            if result:
+                note_row = conn.execute('''
+                    SELECT * FROM notes WHERE fob_id = ?
+                ''', (result['id'],)).fetchone()
+                if note_row:
+                    note = dict(note_row)
+                
+                # Get active reservation if exists
+                chicago_tz = pytz.timezone('America/Chicago')
+                now = datetime.now(chicago_tz)
+                
+                reservation_rows = conn.execute('''
+                    SELECT r.*, u.first_name, u.last_name
+                    FROM reservations r
+                    LEFT JOIN users u ON r.user_id = u.id
+                    WHERE r.fob_id = ?
+                ''', (result['id'],)).fetchall()
+                
+                # Check which reservations are active
+                for res in reservation_rows:
+                    try:
+                        res_dt = datetime.fromisoformat(res['reserved_datetime'])
+                        display_start = res_dt - timedelta(hours=res['display_hours_before'])
+                        if res_dt > now and display_start <= now:
+                            reservation = dict(res)
+                            break
+                    except:
+                        pass
+            
+            conn.close()
+            
+            if result:
+                fob_dict = dict(result)
+                fob_dict['note'] = note
+                fob_dict['reservation'] = reservation
+                return {'found': True, 'type': 'fob', 'data': fob_dict}, 200
+            else:
+                return {'found': False}, 200
+                
+        elif lookup_type == 'scan':
+            # Universal lookup - check if it's a user or fob
+            user = conn.execute('''
+                SELECT * FROM users WHERE card_id = ? COLLATE NOCASE
+            ''', (identifier,)).fetchone()
+            
+            fob = conn.execute('''
+                SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE
+            ''', (identifier,)).fetchone()
+            
+            conn.close()
+            
+            if user:
+                return {'found': True, 'type': 'user', 'data': dict(user)}, 200
+            elif fob:
+                return {'found': True, 'type': 'fob', 'data': dict(fob)}, 200
+            else:
+                return {'found': False}, 200
+        
+        else:
+            conn.close()
+            return {'error': 'Invalid lookup type'}, 400
+            
+    except Exception as e:
+        conn.close()
+        return {'error': str(e)}, 500
+
+@app.route('/api/search/users', methods=['POST'])
+@require_kiosk_auth
+def api_search_users():
+    """Search users by name or card_id"""
+    data = request.get_json()
+    search = data.get('search', '')
+    
+    conn = get_db()
+    
+    try:
+        users = conn.execute('''
+            SELECT * FROM users 
+            WHERE last_name LIKE ? OR card_id LIKE ?
+        ''', (f'%{search}%', f'%{search}%')).fetchall()
+        conn.close()
+        
+        user_list = [dict(user) for user in users]
+        return {'users': user_list}, 200
+        
+    except Exception as e:
+        conn.close()
+        return {'error': str(e)}, 500
+
+@app.route('/api/list/equipment', methods=['GET'])
+@require_kiosk_auth
+def api_list_equipment():
+    """List all active equipment with checkout status"""
+    conn = get_db()
+    
+    try:
+        equipment = conn.execute('''
+            SELECT kf.*, c.id as checkout_id, c.checked_out_at, 
+                   u.first_name, u.last_name
+            FROM key_fobs kf
+            LEFT JOIN checkouts c ON kf.id = c.fob_id AND c.checked_in_at IS NULL
+            LEFT JOIN users u ON c.user_id = u.id
+            WHERE kf.is_active = 1
+            ORDER BY kf.category, kf.vehicle_name
+        ''').fetchall()
+        conn.close()
+        
+        equipment_list = [dict(item) for item in equipment]
+        return {'equipment': equipment_list}, 200
+        
+    except Exception as e:
+        conn.close()
+        return {'error': str(e)}, 500
+
+@app.route('/api/search/equipment', methods=['POST'])
+@require_kiosk_auth
+def api_search_equipment():
+    """Search equipment by name"""
+    data = request.get_json()
+    search = data.get('search', '')
+    
+    conn = get_db()
+    
+    try:
+        equipment = conn.execute('''
+            SELECT * FROM key_fobs 
+            WHERE vehicle_name LIKE ? AND is_active = 1
+        ''', (f'%{search}%',)).fetchall()
+        conn.close()
+        
+        equipment_list = [dict(item) for item in equipment]
+        return {'equipment': equipment_list}, 200
+        
+    except Exception as e:
+        conn.close()
+        return {'error': str(e)}, 500
 
 # Admin login - only available if ADMIN_PASSWORD is set AND not in OKTA mode
 if ADMIN_PASSWORD and not OKTA_HEADER:
@@ -736,6 +915,47 @@ def api_replace_card():
     except Exception as e:
         conn.close()
         return {'error': str(e)}, 500
+
+@app.route('/api/equipment/replace_fob', methods=['POST'])
+@require_kiosk_auth
+def api_equipment_replace_fob():
+    """Replace a fob ID for existing equipment"""
+    data = request.get_json()
+    
+    equipment_id = data.get('equipment_id')
+    new_fob_id = data.get('new_fob_id')
+    
+    if not equipment_id or not new_fob_id:
+        return {'error': 'Missing equipment_id or new_fob_id'}, 400
+    
+    conn = get_db()
+    
+    try:
+        # Check if new fob_id already exists
+        existing = conn.execute('''
+            SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE
+        ''', (new_fob_id,)).fetchone()
+        
+        if existing:
+            conn.close()
+            return {'error': 'This fob ID is already registered'}, 400
+        
+        # Update the fob_id
+        conn.execute('''
+            UPDATE key_fobs 
+            SET fob_id = ?
+            WHERE id = ?
+        ''', (new_fob_id, equipment_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return {'success': True}, 200
+        
+    except Exception as e:
+        conn.close()
+        return {'error': str(e)}, 500
+
 
 @app.route('/api/note/delete', methods=['POST'])
 @require_kiosk_auth
