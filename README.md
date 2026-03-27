@@ -571,6 +571,23 @@ checkout-system/
 - `POST /api/note/delete` - Delete note
   - Body: `{fob_id}`
 
+**Lookups & Search:**
+- `POST /api/lookup` - Universal lookup for users, equipment, or unknown scans
+  - Body: `{type: 'user'|'fob'|'scan', id: identifier}`
+  - Returns: `{found: bool, type: str, data: dict}` with checkout status, notes, and reservations
+- `POST /api/search/users` - Search users by name or card ID
+  - Body: `{search: text}`
+  - Returns: `{users: [...]}`
+- `POST /api/search/equipment` - Search equipment by name
+  - Body: `{search: text}`
+  - Returns: `{equipment: [...]}`
+- `GET /api/list/equipment` - List all active equipment with checkout status
+  - Returns: `{equipment: [...]}`
+- `POST /api/equipment/replace_fob` - Replace lost/broken fob
+  - Body: `{equipment_id, new_fob_id}`
+  - Returns: `{success: bool}`
+
+
 **System:**
 - `POST /api/notify` - Trigger dashboard refresh (WebSocket broadcast)
 
