@@ -1177,7 +1177,7 @@ class KioskGUI:
         
         # Filter to just vehicles (not equipment)
         vehicles = [item for item in all_equipment 
-                   if item.get('category') in ('Squad Cars', 'CSO Vehicles', 'CID Vehicles')]
+                   if item.get('category') in ('Squad Cars', 'Specialized Services Vehicles', 'CID Vehicles', 'Other Vehicles')]
         
         if not vehicles:
             self.show_error("No vehicles found")
