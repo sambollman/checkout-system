@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, make_response, send_file
 from flask_socketio import SocketIO, emit
 from database import get_db
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 import hashlib
 import os
@@ -613,16 +613,25 @@ def api_lookup():
                     LEFT JOIN users u ON r.user_id = u.id
                     WHERE r.fob_id = ?
                 ''', (result['id'],)).fetchall()
+                print(f"DEBUG API: Found {len(reservation_rows)} reservations for fob {result['id']}")
                 
                 # Check which reservations are active
                 for res in reservation_rows:
                     try:
                         res_dt = datetime.fromisoformat(res['reserved_datetime'])
                         display_start = res_dt - timedelta(hours=res['display_hours_before'])
+                        print(f"DEBUG API: Checking reservation {res['id']}")
+                        print(f"  Reserved time: {res_dt}")
+                        print(f"  Display start: {display_start}")
+                        print(f"  Current time: {now}")
+                        print(f"  res_dt > now: {res_dt > now}")
+                        print(f"  display_start <= now: {display_start <= now}")
                         if res_dt > now and display_start <= now:
                             reservation = dict(res)
+                            print(f"  ✓ ACTIVE RESERVATION FOUND!")
                             break
-                    except:
+                    except Exception as e:
+                        print(f"  ERROR: {e}")
                         pass
             
             conn.close()
