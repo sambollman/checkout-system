@@ -230,10 +230,8 @@ def index():
                       other_vehicles=other_vehicles,
                       equipment=equipment,
                       key_rings=key_rings)
-@app.route('/api/status')
-@require_kiosk_auth
-def api_status():
-    """API endpoint to get current key status as JSON"""
+def get_current_status():
+    """Get current equipment status - shared logic for API and WebSocket broadcasts"""
     conn = get_db()
     
     # Get all active key fobs with their current checkout status
@@ -279,9 +277,7 @@ def api_status():
     for note in notes:
         note_map[note['fob_id']] = note
 
-
     # Get active reservations
-    
     reservations_query = '''
         SELECT r.*, u.first_name, u.last_name, kf.id as fob_table_id
         FROM reservations r
@@ -301,7 +297,7 @@ def api_status():
                 dt = datetime.fromisoformat(res_dict['reserved_datetime'])
                 if dt.tzinfo is not None:
                     dt = dt.astimezone(chicago_tz)
-                res_dict['reserved_datetime'] = dt.strftime('%a, %b %d at %I:%M %p')  # "Fri, Feb 21 at 2:00 PM"
+                res_dict['reserved_datetime'] = dt.strftime('%a, %b %d at %I:%M %p')
             except:
                 pass
         formatted_reservations.append(res_dict)
@@ -314,7 +310,6 @@ def api_status():
     conn.close()
     
     # Format timestamps
-    chicago_tz = pytz.timezone('America/Chicago')
     formatted_keys = []
     
     for key in all_keys:
@@ -335,11 +330,10 @@ def api_status():
                     dt = datetime.fromisoformat(res_dict['reserved_datetime'])
                     if dt.tzinfo is not None:
                         dt = dt.astimezone(chicago_tz)
-                    res_dict['reserved_datetime'] = dt.strftime('%b %d, %Y %H:%M')  # Match checkout format
+                    res_dict['reserved_datetime'] = dt.strftime('%b %d, %Y %H:%M')
                 except:
                     pass
             key_dict['reservation'] = res_dict
-            print(f"DEBUG: Added reservation to {key_dict['vehicle_name']} (id={key_dict['id']})")
         else:
             key_dict['reservation'] = None
         # Add note info
@@ -379,20 +373,28 @@ def api_status():
                        key=status_then_name_sort)
     
     return {
-    'squad_cars': squad_cars,
-    'specialized_vehicles': specialized_vehicles,
-    'cid_vehicles': cid_vehicles,
-    'other_vehicles': other_vehicles,
-    'equipment': equipment,
-    'key_rings': key_rings
-}
+        'squad_cars': squad_cars,
+        'specialized_vehicles': specialized_vehicles,
+        'cid_vehicles': cid_vehicles,
+        'other_vehicles': other_vehicles,
+        'equipment': equipment,
+        'key_rings': key_rings,
+        'active_reservations': formatted_reservations
+    }
+
+@app.route('/api/status')
+@require_kiosk_auth
+def api_status():
+    """API endpoint to get current key status as JSON (requires kiosk auth)"""
+    return get_current_status()
+
 
 @app.route('/api/notify', methods=['POST'])
 @require_kiosk_auth
 def api_notify():
     """Receive notification from kiosk that status changed"""
     # Broadcast update to all connected clients
-    socketio.emit('status_update', api_status())
+    socketio.emit('status_update', get_current_status())
     return {'status': 'ok'}
 
 @app.route('/api/user/register', methods=['POST'])
@@ -507,7 +509,7 @@ def api_checkout():
         conn.close()
         
         # Broadcast update
-        socketio.emit('status_update', api_status())
+        socketio.emit('status_update', get_current_status())
         
         return {'status': 'success', 'message': 'Checked out successfully'}, 201
     except Exception as e:
@@ -546,7 +548,7 @@ def api_checkin():
         conn.close()
         
         # Broadcast update
-        socketio.emit('status_update', api_status())
+        socketio.emit('status_update', get_current_status())
         
         return {'status': 'success', 'message': 'Checked in successfully'}, 200
     except Exception as e:
@@ -816,7 +818,7 @@ def api_bulk_checkout():
         conn.close()
         
         # Broadcast update
-        socketio.emit('status_update', api_status())
+        socketio.emit('status_update', get_current_status())
         
         return {
             'status': 'success',
@@ -880,7 +882,7 @@ def api_barns_transfer():
         conn.close()
         
         # Broadcast update
-        socketio.emit('status_update', api_status())
+        socketio.emit('status_update', get_current_status())
         
         return {'status': 'success', 'message': 'Transferred to The Barns'}, 200
         
@@ -985,7 +987,7 @@ def api_delete_note():
         conn.close()
         
         # Broadcast update
-        socketio.emit('status_update', api_status())
+        socketio.emit('status_update', get_current_status())
         
         return {'status': 'success', 'message': 'Note deleted'}, 200
         
@@ -1023,7 +1025,7 @@ def api_add_note():
         conn.close()
         
         # Broadcast update
-        socketio.emit('status_update', api_status())
+        socketio.emit('status_update', get_current_status())
         
         return {'status': 'success', 'message': 'Note added'}, 201
         
@@ -1639,7 +1641,7 @@ def reserve_fob(fob_id):
         conn.close()
         
         # Broadcast update
-        socketio.emit('status_update', api_status())
+        socketio.emit('status_update', get_current_status())
         return redirect(url_for('admin_dashboard') + '#reservations')
     
     users = conn.execute('SELECT * FROM users WHERE is_active = 1 ORDER BY last_name, first_name').fetchall()
@@ -1657,8 +1659,8 @@ def delete_reservation(reservation_id):
     conn.commit()
     conn.close()
     
-    # Broadcast udpate
-    socketio.emit('status_update', api_status())
+    # Broadcast update
+    socketio.emit('status_update', get_current_status())
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/fob/barcode/<int:fob_id>')
@@ -1720,6 +1722,7 @@ def add_note(fob_id):
         ''', (fob_id, note_text, datetime.now(chicago_tz).isoformat(), created_by))
         
         conn.commit()
+        socketio.emit('status_update', get_current_status())
         conn.close()
         return redirect(url_for('admin_dashboard') + '#fobs')
     
@@ -1735,6 +1738,7 @@ def delete_note(fob_id):
     conn = get_db()
     conn.execute('DELETE FROM notes WHERE fob_id = ?', (fob_id,))
     conn.commit()
+    socketio.emit('status_update', get_current_status())
     conn.close()
     
     return redirect(url_for('admin_dashboard') + '#fobs')
@@ -1777,6 +1781,7 @@ def edit_note(fob_id):
         ''', (fob_id, note_text, datetime.now(chicago_tz).isoformat(), created_by, expiration_iso))
         
         conn.commit()
+        socketio.emit('status_update', get_current_status())
         conn.close()
         return redirect(url_for('admin_dashboard') + '#fobs')
     
@@ -1796,6 +1801,7 @@ def expire_note(fob_id):
     # Update the note's expiration to now
     conn.execute('UPDATE notes SET expires_at = ? WHERE fob_id = ?', (now, fob_id))
     conn.commit()
+    socketio.emit('status_update', get_current_status())
     conn.close()
     
     return redirect(url_for('admin_dashboard') + '#fobs')
