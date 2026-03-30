@@ -1582,6 +1582,77 @@ class KioskGUI:
                 # User data returned from API - no DB query needed!
                 user = error_or_response  # This is actually the response when success=True
             
+            # Check if the pending fob has a reservation
+            if self.pending_fob.get('reservation'):
+                reservation = self.pending_fob['reservation']
+                reserved_for = ""
+                if reservation.get('first_name'):
+                    reserved_for = f"{reservation['first_name']} {reservation['last_name']}"
+                elif reservation.get('reserved_for_name'):
+                    reserved_for = reservation['reserved_for_name']
+                
+                # Format the reservation datetime
+                try:
+                    res_dt = datetime.fromisoformat(reservation['reserved_datetime'])
+                    formatted_time = res_dt.strftime('%a, %b %d at %I:%M %p')
+                except:
+                    formatted_time = str(reservation['reserved_datetime'])
+                
+                # Show warning dialog
+                from tkinter import Toplevel, Button, Label
+                
+                result = [None]
+                
+                def on_yes():
+                    result[0] = True
+                    dialog.destroy()
+                
+                def on_no():
+                    result[0] = False
+                    dialog.destroy()
+                
+                dialog = Toplevel(self.root)
+                dialog.title("⚠️ Reserved Item")
+                dialog.geometry("700x600")
+                dialog.configure(bg='white')
+                dialog.transient(self.root)
+                dialog.grab_set()
+                
+                Label(dialog, text="⚠️", font=font.Font(size=80), 
+                      bg='white', fg='#FF9800').pack(pady=(30, 20))
+                
+                Label(dialog, text=f"{self.pending_fob['vehicle_name']} is RESERVED", 
+                      font=font.Font(size=24, weight='bold'), bg='white').pack(pady=(0, 20))
+                
+                info_text = f"Reserved For: {reserved_for}\nTime: {formatted_time}"
+                if reservation.get('reason'):
+                    info_text += f"\n\nReason: {reservation['reason']}"
+                
+                Label(dialog, text=info_text, 
+                      font=font.Font(size=18), bg='white', 
+                      wraplength=600, justify='center').pack(pady=(0, 30))
+                
+                Label(dialog, text="Do you want to check it out anyway?", 
+                      font=font.Font(size=20), bg='white').pack(pady=(0, 20))
+                
+                button_frame = tk.Frame(dialog, bg='white')
+                button_frame.pack(pady=20)
+                
+                Button(button_frame, text="Yes, Check Out", command=on_yes,
+                       font=font.Font(size=18), bg='#4CAF50', fg='white',
+                       width=16, height=2).pack(side='left', padx=10)
+                
+                Button(button_frame, text="No, Cancel", command=on_no,
+                       font=font.Font(size=18), bg='#f44336', fg='white',
+                       width=16, height=2).pack(side='left', padx=10)
+                
+                dialog.wait_window()
+                
+                if not result[0]:
+                    self.pending_fob = None
+                    self.show_welcome()
+                    return
+
             # Check out the pending fob via API
             success, error = self.checkout_api(user['id'], self.pending_fob['id'])
             if not success:
