@@ -151,9 +151,8 @@ def index():
     # Create a dict of fob_id -> reservation
     reservation_map = {}
     for res in reservations:
-        reservation_map[res['fob_table_id']] = res
-    print(f"DEBUG: Found {len(reservations)} reservations")
-    print(f"DEBUG: reservation_map keys: {reservation_map.keys()}")
+        if res['fob_table_id'] not in reservation_map:
+            reservation_map[res['fob_table_id']] = res
     conn.close()
     
     # Format timestamps and group by category
@@ -292,6 +291,7 @@ def get_current_status():
               r.display_hours_before = 0
               OR datetime(r.reserved_datetime, '-' || r.display_hours_before || ' hours') <= datetime(?)
           )
+        ORDER BY r.reserved_datetime ASC
     '''
     reservations = conn.execute(reservations_query, (now.isoformat(), now.isoformat())).fetchall()
     
@@ -312,8 +312,8 @@ def get_current_status():
     # Create a dict of fob_id -> reservation
     reservation_map = {}
     for res in reservations:
-        reservation_map[res['fob_table_id']] = res
-
+        if res['fob_table_id'] not in reservation_map:
+            reservation_map[res['fob_table_id']] = res
     conn.close()
     
     # Format timestamps
