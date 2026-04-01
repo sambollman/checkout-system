@@ -119,16 +119,20 @@ def index():
     for note in notes:
         note_map[note['fob_id']] = note
 
-
     reservations_query = '''
         SELECT r.*, u.first_name, u.last_name, kf.id as fob_table_id
         FROM reservations r
         LEFT JOIN users u ON r.user_id = u.id
         JOIN key_fobs kf ON r.fob_id = kf.id
         WHERE datetime(r.reserved_datetime) > datetime(?)
-          AND datetime(r.reserved_datetime, '-' || r.display_hours_before || ' hours') <= datetime(?)
+          AND (
+              r.display_hours_before = 0
+              OR datetime(r.reserved_datetime, '-' || r.display_hours_before || ' hours') <= datetime(?)
+          )
     '''
     reservations = conn.execute(reservations_query, (now.isoformat(), now.isoformat())).fetchall()
+
+
     
     # Format reservation datetimes
     formatted_reservations = []
@@ -284,7 +288,10 @@ def get_current_status():
         LEFT JOIN users u ON r.user_id = u.id
         JOIN key_fobs kf ON r.fob_id = kf.id
         WHERE datetime(r.reserved_datetime) > datetime(?)
-          AND datetime(r.reserved_datetime, '-' || r.display_hours_before || ' hours') <= datetime(?)
+          AND (
+              r.display_hours_before = 0
+              OR datetime(r.reserved_datetime, '-' || r.display_hours_before || ' hours') <= datetime(?)
+          )
     '''
     reservations = conn.execute(reservations_query, (now.isoformat(), now.isoformat())).fetchall()
     
@@ -614,6 +621,7 @@ def api_lookup():
                     FROM reservations r
                     LEFT JOIN users u ON r.user_id = u.id
                     WHERE r.fob_id = ?
+                    ORDER BY r.reserved_datetime ASC
                 ''', (result['id'],)).fetchall()
                 print(f"DEBUG API: Found {len(reservation_rows)} reservations for fob {result['id']}")
                 
