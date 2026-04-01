@@ -1609,9 +1609,30 @@ def replace_fob(fob_id):
     if request.method == 'POST':
         new_fob_id = request.form.get('new_fob_id')
         
+        # Check if new fob_id already exists
+        existing = conn.execute('''
+            SELECT * FROM key_fobs WHERE fob_id = ? COLLATE NOCASE AND id != ?
+        ''', (new_fob_id, fob_id)).fetchone()
+        
+        if existing:
+            conn.close()
+            # Flash an error message and return to the form
+            from flask import flash
+            flash(f"Error: This fob is already registered to {existing['vehicle_name']}", 'error')
+            return render_template('replace_fob.html', fob=fob, error=f"This fob is already registered to {existing['vehicle_name']}")
+        
         # Update the fob_id
-        conn.execute('UPDATE key_fobs SET fob_id = ? WHERE id = ?',
-                    (new_fob_id, fob_id))
+        try:
+            conn.execute('UPDATE key_fobs SET fob_id = ? WHERE id = ?',
+                        (new_fob_id, fob_id))
+            conn.commit()
+            conn.close()
+            return redirect(url_for('admin_dashboard') + '#fobs')
+        except Exception as e:
+            conn.close()
+            from flask import flash
+            flash(f"Error replacing fob: {str(e)}", 'error')
+            return render_template('replace_fob.html', fob=fob, error=f"Database error: {str(e)}")
         conn.commit()
         conn.close()
         return redirect(url_for('admin_dashboard') + '#fobs')
