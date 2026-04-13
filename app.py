@@ -36,7 +36,7 @@ def get_authenticated_user():
 def is_admin_user(username):
     """Check if user is authorized for admin access"""
     conn = get_db()
-    admin = conn.execute('SELECT * FROM admin_users WHERE username = ?', (username,)).fetchone()
+    admin = conn.execute('SELECT * FROM admin_users WHERE LOWER(username) = LOWER(?)', (username,)).fetchone()
     conn.close()
     return admin is not None
 
@@ -226,13 +226,14 @@ def index():
                        key=status_then_name_sort)
 
     
-    return render_template('index.html', 
+    return render_template('index.html',
                       squad_cars=squad_cars,
                       specialized_vehicles=specialized_vehicles,
                       cid_vehicles=cid_vehicles,
                       other_vehicles=other_vehicles,
                       equipment=equipment,
-                      key_rings=key_rings)
+                      key_rings=key_rings,
+                      okta_mode=bool(OKTA_HEADER))
 def get_current_status():
     """Get current equipment status - shared logic for API and WebSocket broadcasts"""
     conn = get_db()
