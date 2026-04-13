@@ -374,7 +374,7 @@ body {
         </label>
     </div>
     <h1>Vehicle & Equipment Checkout System</h1>
-    <a href="/admin/login" class="admin-link">Admin</a>
+    <a href="{% if okta_mode %}/admin{% else %}/admin/login{% endif %}" class="admin-link">Admin</a>
 
      
     <div class="tab-container">
