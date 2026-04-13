@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser
@@ -15,7 +15,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy only server application files (kiosk files excluded via .dockerignore)
 COPY app.py database.py ./
 COPY templates/ ./templates/
-COPY static/ ./static/
 
 # Switch to non-root user
 USER appuser
