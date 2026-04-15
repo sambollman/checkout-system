@@ -1861,9 +1861,28 @@ def manage_admin_users():
         return redirect('/admin/login')
     
     conn = get_db()
-    admins = conn.execute('SELECT * FROM admin_users ORDER BY username').fetchall()
+    admins_raw = conn.execute('SELECT * FROM admin_users ORDER BY username').fetchall()
     conn.close()
     
+    # Convert timestamps to Chicago time
+    chicago_tz = pytz.timezone('America/Chicago')
+    admins = []
+    for admin in admins_raw:
+        admin_dict = dict(admin)
+        if admin_dict.get('created_at'):
+            try:
+                # Parse the UTC timestamp
+                dt = datetime.fromisoformat(admin_dict['created_at'])
+                # If no timezone, assume UTC
+                if dt.tzinfo is None:
+                    dt = pytz.UTC.localize(dt)
+                # Convert to Chicago time
+                dt_chicago = dt.astimezone(chicago_tz)
+                admin_dict['created_at'] = dt_chicago.strftime('%b %d, %Y %H:%M')
+            except:
+                pass  # Keep original if parsing fails
+        admins.append(admin_dict)
+
     return render_template('manage_admins.html', admins=admins)
 
 @app.route('/admin/admins/add', methods=['POST'])
