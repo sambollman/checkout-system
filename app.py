@@ -1738,18 +1738,31 @@ def add_note(fob_id):
     
     if request.method == 'POST':
         note_text = request.form.get('note_text')
+        expires_at = request.form.get('expires_at')  # Get expiration from form
         created_by = session.get('username', 'admin')
         
         chicago_tz = pytz.timezone('America/Chicago')
         
+        # Convert expires_at to Chicago timezone if provided
+        expires_at_iso = None
+        if expires_at:
+            try:
+                # Parse the datetime-local input (format: YYYY-MM-DDTHH:MM)
+                dt = datetime.strptime(expires_at, '%Y-%m-%dT%H:%M')
+                # Localize to Chicago timezone
+                dt_chicago = chicago_tz.localize(dt)
+                expires_at_iso = dt_chicago.isoformat()
+            except:
+                pass  # If parsing fails, leave as None
+        
         # Delete existing note (one at a time)
         conn.execute('DELETE FROM notes WHERE fob_id = ?', (fob_id,))
         
-        # Insert new note
+        # Insert new note with expiration
         conn.execute('''
-            INSERT INTO notes (fob_id, note_text, created_at, created_by)
-            VALUES (?, ?, ?, ?)
-        ''', (fob_id, note_text, datetime.now(chicago_tz).isoformat(), created_by))
+            INSERT INTO notes (fob_id, note_text, created_at, created_by, expires_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (fob_id, note_text, datetime.now(chicago_tz).isoformat(), created_by, expires_at_iso))
         
         conn.commit()
         socketio.emit('status_update', get_current_status())

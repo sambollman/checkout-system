@@ -57,6 +57,19 @@
             color: white;
             margin-left: 10px;
         }
+        input[type="datetime-local"] {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
@@ -71,6 +84,10 @@
         <form method="POST">
             <label>Note:</label>
             <textarea name="note_text" required placeholder="e.g., Computer not working, AED needs servicing"></textarea>
+            
+            <label>Expiration (optional):</label>
+            <input type="datetime-local" name="expires_at">
+            <div class="help-text">Leave blank for no expiration. Note will be hidden after this date/time.</div>
             
             <button type="submit" class="save-btn">Add Note</button>
             <a href="/admin#fobs"><button type="button" class="cancel-btn">Cancel</button></a>
