@@ -878,7 +878,7 @@ class KioskGUI:
         
         msg_label = tk.Label(
             self.message_frame,
-            text="Bulk Checkout Mode\n\nScan your keycard",
+            text="Bulk Checkout Mode\n\nScan your keycard or first item",
             font=self.header_font,
             fg='#4CAF50',
             bg='black',
@@ -907,18 +907,27 @@ class KioskGUI:
         self.clear_message_frame()
         
         # Header
+        if self.current_user:
+            header_text = f"🛒 Bulk Checkout - {self.current_user['first_name']} {self.current_user['last_name']}"
+        else:
+            header_text = "🛒 Bulk Checkout"
+
         header_label = tk.Label(
             self.message_frame,
-            text=f"🛒 Bulk Checkout - {self.current_user['first_name']} {self.current_user['last_name']}",
+            text=header_text,
             font=font.Font(size=20, weight='bold'),
             fg='#4CAF50',
             bg='black'
         )
         header_label.pack(pady=(20, 10))
         
+        if self.current_user:
+            instruction_text = f"Scan items for {self.current_user['first_name']} {self.current_user['last_name']}"
+        else:
+            instruction_text = "Scan items and your keycard"
         instruction_label = tk.Label(
             self.message_frame,
-            text="Scan items to check out",
+            text=instruction_text,
             font=self.body_font,
             fg='white',
             bg='black'
@@ -1011,6 +1020,10 @@ class KioskGUI:
 
     def complete_bulk_checkout(self):
         """Complete bulk checkout and check out all items"""
+        if not self.current_user:
+            self.show_error("Please scan your keycard first")
+            return
+
         if not self.bulk_items:
             self.show_error("No items to check out")
             return
@@ -1481,6 +1494,20 @@ class KioskGUI:
     
     def handle_card_scan(self, card_id):
         """Handle a card scan"""
+        
+        # Check if in bulk checkout mode
+        if self.bulk_checkout_mode and not self.current_user:
+            # Look up user via API
+            found, user = self.lookup_api('user', card_id)
+
+            if not found or not user:
+                self.show_error("Unknown card. Please register at the admin panel.")
+                return
+
+            self.current_user = user
+            self.show_bulk_scanning()
+            return
+
         # Check if we're in replace mode
         if self.replace_mode == 'card' and self.replace_item:
             # This is the NEW card being scanned
@@ -1539,20 +1566,6 @@ class KioskGUI:
             # Return to welcome after 3 seconds
             self.root.after(3000, self.show_welcome)
             return
-
-            # **NEW: Check if in bulk checkout mode**
-            if self.bulk_checkout_mode and not self.current_user:
-                # Look up user via API
-                found, user = self.lookup_api('user', card_id)
-        
-                if not found or not user:
-                    self.show_error("Unknown card. Please register at the admin panel.")
-                    return
-        
-                self.current_user = (user)
-                self.show_bulk_scanning()
-                return
-
 
         # Check if there's a pending fob to check out
         if hasattr(self, 'pending_fob') and self.pending_fob:
@@ -1777,7 +1790,7 @@ class KioskGUI:
 
 
         # Check if in bulk checkout mode
-        if self.bulk_checkout_mode and self.current_user:
+        if self.bulk_checkout_mode:
             found, fob = self.lookup_api('fob', fob_id)
             if found and fob:
                 self.add_bulk_item(fob)

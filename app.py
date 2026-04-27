@@ -472,6 +472,15 @@ def register_equipment():
         conn.close()
         return {'error': 'Fob ID already registered'}, 400
     
+    # Check if vehicle name already exists (for active equipment)
+    existing_name = conn.execute('''
+        SELECT * FROM key_fobs 
+        WHERE vehicle_name = ? COLLATE NOCASE 
+        AND is_active = 1
+    ''', (vehicle_name,)).fetchone()
+    if existing_name:
+        conn.close()
+        return {'error': f'Vehicle name "{vehicle_name}" is already registered'}, 400
     # Insert new equipment
     try:
         conn.execute('''
@@ -1695,36 +1704,78 @@ def delete_reservation(reservation_id):
 
 @app.route('/admin/fob/barcode/<int:fob_id>')
 def generate_barcode(fob_id):
-    """Generate barcode for a fob"""
+    """Generate QR code for a fob"""
     if not session.get('admin'):
         return redirect(url_for('admin_login'))
-    
-    import barcode
-    from barcode.writer import ImageWriter
+   
+    import qrcode
     from io import BytesIO
-    
+    from PIL import Image, ImageDraw, ImageFont
+   
     conn = get_db()
     fob = conn.execute('SELECT * FROM key_fobs WHERE id = ?', (fob_id,)).fetchone()
     conn.close()
-    
+   
     if not fob:
         return "Fob not found", 404
+   
+    # Generate QR code
+    qr = qrcode.QRCode(
+        version=1,
+        box_size=3,
+        border=1,
+    )
+    qr.add_data(fob['fob_id'])
+    qr.make(fit=True)
     
-    # Generate barcode
-    code128 = barcode.get_barcode_class('code128')
-    barcode_image = code128(fob['fob_id'], writer=ImageWriter())
+    qr_img = qr.make_image(fill_color="black", back_color="white")
     
+    # Add text label below QR code
+    qr_width, qr_height = qr_img.size
+    
+    # Convert QR image to RGB if needed
+    if qr_img.mode != 'RGB':
+        qr_img = qr_img.convert('RGB')
+    
+    # Set up font and calculate text size
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
+    except:
+        font = ImageFont.load_default()
+    
+    text = fob['vehicle_name']
+    # Create temporary draw to measure text
+    temp_img = Image.new('RGB', (1, 1))
+    temp_draw = ImageDraw.Draw(temp_img)
+    bbox = temp_draw.textbbox((0, 0), text, font=font)
+    text_width = bbox[2] - bbox[0]
+    
+    # Make final image wide enough for QR code OR text (whichever is wider)
+    text_height = 25
+    final_width = max(qr_width, text_width + 10)  # +10 for padding
+    final_img = Image.new('RGB', (final_width, qr_height + text_height), 'white')
+    
+    # Center QR code horizontally if text is wider
+    qr_x = (final_width - qr_width) // 2
+    final_img.paste(qr_img, (qr_x, 0))
+    
+    # Draw text centered
+    draw = ImageDraw.Draw(final_img)
+    text_x = (final_width - text_width) // 2
+    text_y = qr_height + 5
+    draw.text((text_x, text_y), text, fill='black', font=font)
+   
     # Save to BytesIO
     buffer = BytesIO()
-    barcode_image.write(buffer, options={'write_text': True, 'module_height': 15, 'module_width': 0.3, 'font_size': 14, 'text_distance': 5})
+    final_img.save(buffer, format='PNG')
     buffer.seek(0)
-    
+   
     # Return as downloadable PNG
     return send_file(
         buffer,
         mimetype='image/png',
         as_attachment=True,
-        download_name=f'{fob["vehicle_name"]}_barcode.png'
+        download_name=f'{fob["vehicle_name"]}_qrcode.png'
     )
 
 @app.route('/admin/fob/note/add/<int:fob_id>', methods=['GET', 'POST'])
