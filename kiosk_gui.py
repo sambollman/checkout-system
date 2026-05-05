@@ -1028,10 +1028,126 @@ class KioskGUI:
             self.show_error("No items to check out")
             return
         
-        # Bulk checkout via API
-        fob_ids = [fob['id'] for fob in self.bulk_items]
-        success, result = self.bulk_checkout_api(self.current_user['id'], fob_ids)
+        # Check for reservations
+        import pytz
+        chicago_tz = pytz.timezone('America/Chicago')
+        now = datetime.now(chicago_tz)
         
+        reserved_items = []
+        for fob in self.bulk_items:
+            reservation = fob.get('reservation')
+            if reservation:
+                reserved_for = ""
+                if reservation.get('first_name'):
+                    reserved_for = f"{reservation['first_name']} {reservation['last_name']}"
+                elif reservation.get('reserved_for_name'):
+                    reserved_for = reservation['reserved_for_name']
+                
+                try:
+                    res_dt = datetime.fromisoformat(reservation['reserved_datetime'])
+                    formatted_time = res_dt.strftime('%a, %b %d at %I:%M %p')
+                except:
+                    formatted_time = str(reservation['reserved_datetime'])
+                
+                reserved_items.append({
+                    'fob': fob,
+                    'reserved_for': reserved_for,
+                    'time': formatted_time,
+                    'reason': reservation.get('reason', '')
+                })
+        
+        # If there are reserved items, show warning dialog
+        items_to_checkout = self.bulk_items  # Default: checkout everything
+        
+        if reserved_items:
+            from tkinter import Toplevel, Button, Label, Frame
+            
+            dialog_choice = [None]  # 'all', 'skip', or None
+            
+            def on_checkout_all():
+                dialog_choice[0] = 'all'
+                dialog.destroy()
+            
+            def on_skip_reserved():
+                dialog_choice[0] = 'skip'
+                dialog.destroy()
+            
+            def on_cancel():
+                dialog_choice[0] = None
+                dialog.destroy()
+            
+            dialog = Toplevel(self.root)
+            dialog.title("⚠️ Reserved Items")
+            dialog.geometry("800x700")
+            dialog.configure(bg='white')
+            dialog.transient(self.root)
+            dialog.grab_set()
+            
+            Label(dialog, text="⚠️", font=font.Font(size=60), 
+                  bg='white', fg='#FF9800').pack(pady=(20, 10))
+            
+            Label(dialog, text=f"{len(reserved_items)} Reserved Item(s) in Your List", 
+                  font=font.Font(size=22, weight='bold'), bg='white').pack(pady=(0, 20))
+            
+            # Scrollable list of reserved items
+            list_frame = Frame(dialog, bg='white')
+            list_frame.pack(pady=10, fill='both', expand=True, padx=30)
+            
+            for item in reserved_items:
+                item_container = Frame(list_frame, bg='#FFF3CD', relief='solid', borderwidth=1)
+                item_container.pack(fill='x', pady=5)
+                
+                Label(item_container, text=f"🔑 {item['fob']['vehicle_name']}", 
+                      font=font.Font(size=16, weight='bold'), bg='#FFF3CD', 
+                      anchor='w').pack(fill='x', padx=10, pady=(5, 0))
+                
+                info_text = f"Reserved for: {item['reserved_for']}\nTime: {item['time']}"
+                if item['reason']:
+                    info_text += f"\nReason: {item['reason']}"
+                
+                Label(item_container, text=info_text, 
+                      font=font.Font(size=13), bg='#FFF3CD', 
+                      anchor='w', justify='left').pack(fill='x', padx=10, pady=(0, 5))
+            
+            Label(dialog, text="What would you like to do?", 
+                  font=font.Font(size=18, weight='bold'), bg='white').pack(pady=(10, 15))
+            
+            button_frame = Frame(dialog, bg='white')
+            button_frame.pack(pady=15)
+            
+            Button(button_frame, text="Check Out All Items", command=on_checkout_all,
+                   font=font.Font(size=16), bg='#4CAF50', fg='white',
+                   width=20, height=2).pack(side='left', padx=8)
+            
+            Button(button_frame, text="Skip Reserved Items", command=on_skip_reserved,
+                   font=font.Font(size=16), bg='#FF9800', fg='white',
+                   width=20, height=2).pack(side='left', padx=8)
+            
+            Button(button_frame, text="Cancel", command=on_cancel,
+                   font=font.Font(size=16), bg='#f44336', fg='white',
+                   width=15, height=2).pack(side='left', padx=8)
+            
+            dialog.wait_window()
+            
+            if dialog_choice[0] is None:
+                # User cancelled
+                return
+            elif dialog_choice[0] == 'skip':
+                # Remove reserved items from checkout list
+                reserved_fob_ids = {item['fob']['id'] for item in reserved_items}
+                items_to_checkout = [fob for fob in self.bulk_items if fob['id'] not in reserved_fob_ids]
+                
+                if not items_to_checkout:
+                    self.show_error("No items left to check out")
+                    return
+        
+        # Bulk checkout via API
+        fob_ids = [fob['id'] for fob in items_to_checkout]
+        print(f"DEBUG: Checking out fob_ids: {fob_ids}")
+        print(f"DEBUG: User ID: {self.current_user['id']}")
+        success, result = self.bulk_checkout_api(self.current_user['id'], fob_ids)
+        print(f"DEBUG: API result - success: {success}, result: {result}")
+
         if not success:
             self.show_error(f"Bulk checkout failed: {result}")
             return
@@ -1041,8 +1157,12 @@ class KioskGUI:
         errors = result.get('errors', [])
         
         # Map back to vehicle names
-        checked_out_items = [fob['vehicle_name'] for fob in self.bulk_items if fob['id'] in checked_out_fob_ids]
-        failed_items = [fob['vehicle_name'] for fob in self.bulk_items if fob['id'] not in checked_out_fob_ids]
+        checked_out_items = [fob['vehicle_name'] for fob in items_to_checkout if fob['id'] in checked_out_fob_ids]
+        failed_items = [fob['vehicle_name'] for fob in items_to_checkout if fob['id'] not in checked_out_fob_ids]
+        
+        skipped_items = []
+        if reserved_items and dialog_choice[0] == 'skip':
+            skipped_items = [item['fob']['vehicle_name'] for item in reserved_items]
         
         self.notify_server()
         
@@ -1067,6 +1187,10 @@ class KioskGUI:
             if len(checked_out_items) > 5:
                 tk.Label(items_frame, text=f"... and {len(checked_out_items) - 5} more", 
                       font=font.Font(size=14), fg='#666', bg='black').pack()
+        
+        if skipped_items:
+            tk.Label(self.message_frame, text=f"⏭️ {len(skipped_items)} reserved item(s) skipped", 
+                  font=font.Font(size=14), fg='#FF9800', bg='black').pack(pady=(10, 0))
         
         if failed_items:
             tk.Label(self.message_frame, text=f"⚠️ {len(failed_items)} item(s) failed", 
