@@ -39,9 +39,10 @@ class KioskGUI:
         self.root.title("Key Checkout Kiosk")
         self.root.configure(bg='black')
         self.root.attributes('-fullscreen', True)
-        self.root.bind('<Escape>', self.exit_fullscreen)
+        self.root.bind('<F12>', self.exit_fullscreen)
         self.root.bind('<F11>', self.enter_fullscreen)
-        
+        self.root.bind('<Escape>', self.emergency_reset)
+    
         # Create fonts
         self.title_font = font.Font(family='Arial', size=48, weight='bold')
         self.header_font = font.Font(family='Arial', size=36, weight='bold')
@@ -88,6 +89,22 @@ class KioskGUI:
         
         # Start timeout checker
         self.check_timeout_loop()
+
+    def emergency_reset(self, event=None):
+        """Reset everything and return to welcome screen (triggered by ESC key)"""
+        # Reset all state
+        self.current_user = None
+        self.pending_fob = None
+        self.bulk_checkout_mode = False
+        self.bulk_items = []
+        self.replace_mode = None
+        self.replace_item = None
+        self.note_mode = False
+        self.barns_scan_mode = False
+        
+        # Return to welcome
+        self.show_welcome()
+
 
     def notify_server(self):
         """Notify server that status changed"""
@@ -858,7 +875,7 @@ class KioskGUI:
         # Instructions
         self.entry.focus_set()
         self.instructions_label.config(text="")
-        self.instructions_label.config(text="Press F11 for fullscreen")
+        self.instructions_label.config(text="Press ESC to reset • F11/F12 for fullscreen")
         
     
     def start_bulk_checkout(self):
