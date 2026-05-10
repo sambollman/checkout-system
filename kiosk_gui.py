@@ -1021,7 +1021,20 @@ class KioskGUI:
     def complete_bulk_checkout(self):
         """Complete bulk checkout and check out all items"""
         if not self.current_user:
-            self.show_error("Please scan your keycard first")
+            # Stay in bulk checkout, just show message
+            self.clear_message_frame()
+            
+            tk.Label(self.message_frame, text="⚠️", font=font.Font(size=80), 
+                  fg='#FF9800', bg='black').pack(pady=(50, 20))
+            
+            tk.Label(self.message_frame, text="Please scan your keycard", 
+                  font=self.header_font, fg='#FF9800', bg='black').pack(pady=(0, 20))
+            
+            tk.Label(self.message_frame, text=f"You have {len(self.bulk_items)} item(s) ready to check out", 
+                  font=self.body_font, fg='white', bg='black').pack()
+            
+            # Return to bulk scanning screen after 2 seconds
+            self.root.after(2000, self.show_bulk_scanning)
             return
 
         if not self.bulk_items:
@@ -1710,7 +1723,7 @@ class KioskGUI:
                     return
                 
                 # Register user via API
-                success, error_or_response = self.register_user_api(card_id, first_name.strip(), last_name.strip())
+                success, error_or_response = self.register_user_api(card_id, first_name.strip().title(), last_name.strip().title())
                 if not success:
                     self.pending_fob = None
                     self.show_error(f"Error registering user: {error_or_response}")
@@ -1825,7 +1838,7 @@ class KioskGUI:
             
             # Register the user
             # Register user via API
-            success, result = self.register_user_api(card_id, first_name.strip(), last_name.strip())
+            success, result = self.register_user_api(card_id, first_name.strip().title(), last_name.strip().title())
             if not success:
                 self.show_error(f"Error registering user: {result}")
                 return
