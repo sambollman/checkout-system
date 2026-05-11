@@ -659,8 +659,14 @@ body {
         const toggle = document.getElementById('darkModeToggle');
         const body = document.body;
         
-        // Check for saved preference
-        if (localStorage.getItem('darkMode') === 'enabled') {
+        // Check for saved preference, default to dark mode
+        const savedMode = localStorage.getItem('darkMode');
+        if (savedMode === 'disabled') {
+            // Only turn off dark mode if explicitly disabled
+            body.classList.remove('dark-mode');
+            toggle.checked = false;
+        } else {
+            // Default to dark mode (including first visit)
             body.classList.add('dark-mode');
             toggle.checked = true;
         }
