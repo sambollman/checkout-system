@@ -804,8 +804,14 @@
         const darkModeToggle = document.getElementById('darkModeToggle');
         const body = document.body;
         
-        // Check for saved preference
-        if (localStorage.getItem('adminDarkMode') === 'enabled') {
+        // Check for saved preference, default to dark mode
+        const savedMode = localStorage.getItem('adminDarkMode');
+        if (savedMode === 'disabled') {
+            // Only turn off dark mode if explicitly disabled
+            body.classList.remove('dark-mode');
+            darkModeToggle.checked = false;
+        } else {
+            // Default to dark mode (including first visit)
             body.classList.add('dark-mode');
             darkModeToggle.checked = true;
         }
