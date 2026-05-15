@@ -85,7 +85,11 @@ class KioskGUI:
         self.scan_buffer = ""
         
         # Show welcome screen
-        self.show_welcome()
+        # Check server connection on startup
+        if self.check_server_available():
+            self.show_welcome()
+        else:
+            self.show_offline_screen()
         
         # Start timeout checker
         self.check_timeout_loop()
@@ -129,6 +133,15 @@ class KioskGUI:
             return response.status_code == 200
         except:
             return False
+
+    def is_network_error(self, exception):
+        """Check if exception is a network/connection error"""
+        return isinstance(exception, (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+            requests.exceptions.RequestException
+        ))
+
     def register_user_api(self, card_id, first_name, last_name):
         """Register a new user via API"""
         try:
@@ -178,6 +191,9 @@ class KioskGUI:
                 error_msg = response.json().get('error', 'Unknown error')
                 return False, error_msg
         except Exception as e:
+            if self.is_network_error(e):
+                self.show_offline_screen()
+                return False, None
             return False, str(e)
 
     def checkout_api(self, user_id, fob_id):
@@ -199,6 +215,9 @@ class KioskGUI:
                     error_msg = response.json().get('error', 'Unknown error')
                     return False, error_msg
             except Exception as e:
+                if self.is_network_error(e):
+                    self.show_offline_screen()
+                    return False, None
                 return False, str(e)
     
     def checkin_api(self, fob_id):
@@ -218,6 +237,9 @@ class KioskGUI:
                     error_msg = response.json().get('error', 'Unknown error')
                     return False, error_msg
             except Exception as e:
+                if self.is_network_error(e):
+                    self.show_offline_screen()
+                    return False, None
                 return False, str(e)
 
     def bulk_checkout_api(self, user_id, fob_ids):
@@ -240,6 +262,9 @@ class KioskGUI:
                 error_msg = response.json().get('error', 'Unknown error')
                 return False, error_msg
         except Exception as e:
+            if self.is_network_error(e):
+                self.show_offline_screen()
+                return False, None
             return False, str(e)
     
     def barns_transfer_api(self, fob_id):
@@ -260,6 +285,9 @@ class KioskGUI:
                 error_msg = response.json().get('error', 'Unknown error')
                 return False, error_msg
         except Exception as e:
+            if self.is_network_error(e):
+                self.show_offline_screen()
+                return False, None
             return False, str(e)
     
     def replace_card_api(self, user_id, new_card_id):
@@ -280,6 +308,9 @@ class KioskGUI:
                 error_msg = response.json().get('error', 'Unknown error')
                 return False, error_msg
         except Exception as e:
+            if self.is_network_error(e):
+                self.show_offline_screen()
+                return False, None
             return False, str(e)
     
     def replace_fob_api(self, equipment_id, new_fob_id):
@@ -300,6 +331,9 @@ class KioskGUI:
                 error_msg = response.json().get('error', 'Unknown error')
                 return False, error_msg
         except Exception as e:
+            if self.is_network_error(e):
+                self.show_offline_screen()
+                return False, None
             return False, str(e)
 
 
@@ -320,6 +354,9 @@ class KioskGUI:
                 error_msg = response.json().get('error', 'Unknown error')
                 return False, error_msg
         except Exception as e:
+            if self.is_network_error(e):
+                self.show_offline_screen()
+                return False, None
             return False, str(e)
 
 
@@ -342,6 +379,9 @@ class KioskGUI:
                 error_msg = response.json().get('error', 'Unknown error')
                 return False, error_msg
         except Exception as e:
+            if self.is_network_error(e):
+                self.show_offline_screen()
+                return False, None
             return False, str(e)
 
     def lookup_api(self, lookup_type, identifier):
@@ -366,6 +406,9 @@ class KioskGUI:
                 error_msg = response.json().get('error', 'Unknown error')
                 return False, error_msg
         except Exception as e:
+            if self.is_network_error(e):
+                self.show_offline_screen()
+                return False, None
             return False, str(e)
     
     def search_users_api(self, search_text):
@@ -384,6 +427,9 @@ class KioskGUI:
                 error_msg = response.json().get('error', 'Unknown error')
                 return False, error_msg
         except Exception as e:
+            if self.is_network_error(e):
+                self.show_offline_screen()
+                return False, None
             return False, str(e)
     
     def search_equipment_api(self, search_text):
@@ -402,6 +448,9 @@ class KioskGUI:
                 error_msg = response.json().get('error', 'Unknown error')
                 return False, error_msg
         except Exception as e:
+            if self.is_network_error(e):
+                self.show_offline_screen()
+                return False, None
             return False, str(e)
 
     def list_equipment_api(self):
@@ -419,6 +468,9 @@ class KioskGUI:
                 error_msg = response.json().get('error', 'Unknown error')
                 return False, error_msg
         except Exception as e:
+            if self.is_network_error(e):
+                self.show_offline_screen()
+                return False, None
             return False, str(e)
 
 
@@ -772,6 +824,67 @@ class KioskGUI:
         for widget in self.message_frame.winfo_children():
             widget.destroy()
     
+    def show_offline_screen(self):
+        """Display offline/connection error screen"""
+        self.clear_message_frame()
+        
+        # Big warning icon
+        icon_label = tk.Label(
+            self.message_frame,
+            text="🚫",
+            font=font.Font(size=120),
+            fg='#f44336',
+            bg='black'
+        )
+        icon_label.pack(pady=(50, 30))
+        
+        # Error message
+        msg_label = tk.Label(
+            self.message_frame,
+            text="System Offline",
+            font=self.header_font,
+            fg='#f44336',
+            bg='black'
+        )
+        msg_label.pack(pady=(0, 20))
+        
+        # Instructions
+        instruction_label = tk.Label(
+            self.message_frame,
+            text="Cannot connect to server\n\nPlease contact a supervisor",
+            font=self.body_font,
+            fg='white',
+            bg='black',
+            justify='center'
+        )
+        instruction_label.pack(pady=(0, 20))
+        
+        # Status message
+        status_label = tk.Label(
+            self.message_frame,
+            text="Retrying connection...",
+            font=font.Font(size=14),
+            fg='#999',
+            bg='black'
+        )
+        status_label.pack()
+        
+        self.instructions_label.config(text="System will resume automatically when connection is restored")
+        
+        # Schedule connection retry in 15 seconds
+        self.root.after(15000, self.retry_connection)
+    
+    def retry_connection(self):
+        """Try to reconnect to server"""
+        if self.check_server_available():
+            # Connection restored - return to welcome
+            self.show_welcome()
+        else:
+            # Still offline - show offline screen again (which schedules another retry)
+            self.show_offline_screen()
+   
+
+
     def show_welcome(self):
         """Display welcome screen"""
         self.clear_message_frame()
@@ -1593,11 +1706,16 @@ class KioskGUI:
         elif event.char.isprintable():
             # Add to buffer
             self.scan_buffer += event.char
-    
     def process_scan(self, scan_data):
         """Process a scanned card or fob"""
         # Look up via API
         found, data = self.lookup_api('scan', scan_data)
+        
+        # If we went offline, lookup_api shows offline screen and returns (False, None)
+        # Check if we're now on offline screen - if so, stop processing
+        if not found and data is None:
+            # Network error - offline screen is showing, don't continue
+            return
         
         if found and data:
             # API returns type in the response, but let's check the data structure
