@@ -408,7 +408,7 @@ class KioskGUI:
         except Exception as e:
             if self.is_network_error(e):
                 self.show_offline_screen()
-                return False, None
+                return False, 'OFFLINE'
             return False, str(e)
     
     def search_users_api(self, search_text):
@@ -1724,7 +1724,9 @@ class KioskGUI:
         # Look up via API
         found, data = self.lookup_api('scan', scan_data)
         print(f"DEBUG: lookup_api returned found={found}, data={data}")
-        # If we went offline, lookup_api shows offline screen and returns (False, None)
+        # If we went offline, stop processing
+        if data == 'OFFLINE':
+            return
         
         if found and data:
             # API returns type in the response, but let's check the data structure
