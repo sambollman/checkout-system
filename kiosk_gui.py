@@ -1708,14 +1708,23 @@ class KioskGUI:
             self.scan_buffer += event.char
     def process_scan(self, scan_data):
         """Process a scanned card or fob"""
+        print(f"DEBUG process_scan: scan_data={scan_data}, replace_mode={self.replace_mode}")
+        # Check if we're in replace mode - bypass lookup for new card/fob
+        if self.replace_mode == 'card':
+            print(f"DEBUG: In replace card mode, calling handle_card_scan")
+            self.handle_card_scan(scan_data)
+            return
+        elif self.replace_mode == 'fob':
+            print(f"DEBUG: In replace fob mode, calling handle_fob_scan")
+            self.handle_fob_scan(scan_data)
+            return
+
+
+        print(f"DEBUG: About to call lookup_api")
         # Look up via API
         found, data = self.lookup_api('scan', scan_data)
-        
+        print(f"DEBUG: lookup_api returned found={found}, data={data}")
         # If we went offline, lookup_api shows offline screen and returns (False, None)
-        # Check if we're now on offline screen - if so, stop processing
-        if not found and data is None:
-            # Network error - offline screen is showing, don't continue
-            return
         
         if found and data:
             # API returns type in the response, but let's check the data structure
@@ -1766,7 +1775,7 @@ class KioskGUI:
     
     def handle_card_scan(self, card_id):
         """Handle a card scan"""
-        
+        print(f"DEBUG handle_card_scan: card_id={card_id}, replace_mode={self.replace_mode}, replace_item={self.replace_item}")
         # Check if in bulk checkout mode
         if self.bulk_checkout_mode and not self.current_user:
             # Look up user via API
