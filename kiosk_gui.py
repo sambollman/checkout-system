@@ -154,7 +154,8 @@ class KioskGUI:
                     'first_name': first_name,
                     'last_name': last_name
                 },
-                timeout=5
+                timeout=5,
+                verify=False
             )
             print(f"DEBUG: API response status = {response.status_code}")
             print(f"DEBUG: API response = {response.text}")
@@ -183,7 +184,8 @@ class KioskGUI:
                     'category': category,
                     'location': location
                 },
-                timeout=5
+                timeout=5,
+                verify=False
             )
             if response.status_code == 201:
                 data = response.json()
@@ -208,7 +210,8 @@ class KioskGUI:
                         'fob_id': fob_id,
                         'kiosk_id': self.kiosk_id
                     },
-                    timeout=5
+                    timeout=5,
+                    verify=False
                 )
                 if response.status_code == 201:
                     return True, None
@@ -230,7 +233,8 @@ class KioskGUI:
                     json={
                         'fob_id': fob_id
                     },
-                    timeout=5
+                    timeout=5,
+                    verify=False
                 )
                 if response.status_code == 200:
                     return True, None
@@ -278,7 +282,8 @@ class KioskGUI:
                     'fob_id': fob_id,
                     'kiosk_id': self.kiosk_id
                 },
-                timeout=5
+                timeout=5,
+                verify=False
             )
             if response.status_code == 200:
                 return True, None
@@ -301,7 +306,8 @@ class KioskGUI:
                     'user_id': user_id,
                     'new_card_id': new_card_id
                 },
-                timeout=5
+                timeout=5,
+                verify=False
             )
             if response.status_code == 200:
                 return True, None
@@ -324,7 +330,8 @@ class KioskGUI:
                     'equipment_id': equipment_id,
                     'new_fob_id': new_fob_id
                 },
-                timeout=5
+                timeout=5,
+                verify=False
             )
             if response.status_code == 200:
                 return True, None
@@ -347,7 +354,8 @@ class KioskGUI:
                 json={
                     'fob_id': fob_id
                 },
-                timeout=5
+                timeout=5,
+                verify=False
             )
             if response.status_code == 200:
                 return True, None
@@ -372,7 +380,8 @@ class KioskGUI:
                     'note_text': note_text,
                     'expires_at': expires_at
                 },
-                timeout=5
+                timeout=5,
+                verify=False
             )
             if response.status_code == 201:
                 return True, None
@@ -395,7 +404,8 @@ class KioskGUI:
                     'type': lookup_type,
                     'id': identifier
                 },
-                timeout=5
+                timeout=5,
+                verify=False
             )
             if response.status_code == 200:
                 data = response.json()
@@ -419,7 +429,8 @@ class KioskGUI:
                 f'{SERVER_URL}/api/search/users',
                 auth=(KIOSK_USER, KIOSK_PASS),
                 json={'search': search_text},
-                timeout=5
+                timeout=5,
+                verify=False
             )
             if response.status_code == 200:
                 data = response.json()
@@ -440,7 +451,8 @@ class KioskGUI:
                 f'{SERVER_URL}/api/search/equipment',
                 auth=(KIOSK_USER, KIOSK_PASS),
                 json={'search': search_text},
-                timeout=5
+                timeout=5,
+                verify=False
             )
             if response.status_code == 200:
                 data = response.json()
@@ -460,7 +472,8 @@ class KioskGUI:
             response = requests.get(
                 f'{SERVER_URL}/api/list/equipment',
                 auth=(KIOSK_USER, KIOSK_PASS),
-                timeout=5
+                timeout=5,
+                verify=False
             )
             if response.status_code == 200:
                 data = response.json()
