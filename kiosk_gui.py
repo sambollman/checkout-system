@@ -128,7 +128,8 @@ class KioskGUI:
             response = requests.get(
                 f'{SERVER_URL}/api/status',
                 auth=(KIOSK_USER, KIOSK_PASS),
-                timeout=1
+                timeout=1,
+                verify=False
             )
             return response.status_code == 200
         except:
