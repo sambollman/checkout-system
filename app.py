@@ -212,6 +212,10 @@ def index():
                          key=natural_sort_key)
     other_vehicles = sorted([k for k in formatted_keys if k['category'] == 'Other Vehicles'], 
                        key=natural_sort_key)
+    pool_cars = sorted([k for k in formatted_keys if k['category'] == 'Pool Cars'], 
+                       key=natural_sort_key)
+    admin_cars = sorted([k for k in formatted_keys if k['category'] == 'Admin Cars'], 
+                       key=natural_sort_key)
     # Equipment and Key Rings: Sort by checked-out status first, then alphabetically
     def status_then_name_sort(item):
         # Return tuple: (0 if checked out, 1 if available), then natural sort key
@@ -231,6 +235,8 @@ def index():
                       specialized_vehicles=specialized_vehicles,
                       cid_vehicles=cid_vehicles,
                       other_vehicles=other_vehicles,
+                      pool_cars=pool_cars,
+                      admin_cars=admin_cars,
                       equipment=equipment,
                       key_rings=key_rings,
                       okta_mode=bool(OKTA_HEADER))
@@ -367,6 +373,10 @@ def get_current_status():
                          key=natural_sort_key)
     other_vehicles = sorted([k for k in formatted_keys if k['category'] == 'Other Vehicles'], 
                        key=natural_sort_key)
+    pool_cars = sorted([k for k in formatted_keys if k['category'] == 'Pool Cars'], 
+                       key=natural_sort_key)
+    admin_cars = sorted([k for k in formatted_keys if k['category'] == 'Admin Cars'], 
+                       key=natural_sort_key)
     # Equipment and Key Rings: Sort by checked-out status first, then alphabetically
     def status_then_name_sort(item):
         # Return tuple: (0 if checked out, 1 if available), then natural sort key
@@ -385,6 +395,8 @@ def get_current_status():
         'specialized_vehicles': specialized_vehicles,
         'cid_vehicles': cid_vehicles,
         'other_vehicles': other_vehicles,
+        'pool_cars': pool_cars,
+        'admin_cars': admin_cars,
         'equipment': equipment,
         'key_rings': key_rings,
         'active_reservations': formatted_reservations
