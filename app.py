@@ -722,14 +722,12 @@ def api_lookup():
                     WHERE r.fob_id = ?
                     ORDER BY r.reserved_datetime ASC
                 ''', (result['id'],)).fetchall()
-                print(f"DEBUG API: Found {len(reservation_rows)} reservations for fob {result['id']}")
                 
                 # Check which reservations are active
                 for res in reservation_rows:
                     try:
                         res_dt = datetime.fromisoformat(res['reserved_datetime'])
                         display_start = res_dt - timedelta(hours=res['display_hours_before'])
-                        print(f"DEBUG API: Checking reservation {res['id']}")
                         print(f"  Reserved time: {res_dt}")
                         print(f"  Display start: {display_start}")
                         print(f"  Current time: {now}")
@@ -1338,7 +1336,7 @@ def admin_dashboard():
     past_user_id = request.args.get('past_user_id')
     past_limit = request.args.get('past_limit', '25')
     
-    print("DEBUG: About to get past reservations")
+
     past_reservations_query = '''
         SELECT r.*, u.first_name, u.last_name, kf.vehicle_name
         FROM reservations r
@@ -1350,13 +1348,11 @@ def admin_dashboard():
     
     # Filter and format past reservation datetimes
     past_reservations = []
-    print(f"DEBUG: Now is {now}")
     for res in past_reservations_raw:
         res_dict = dict(res)
         if res_dict['reserved_datetime']:
             try:
                 dt = datetime.fromisoformat(res_dict['reserved_datetime'])
-                print(f"DEBUG: Reservation time: {dt}, Is past? {dt <= now}")
                 
                 # Only include past reservations
                 if dt <= now:
@@ -1389,13 +1385,11 @@ def admin_dashboard():
     
     # Filter and format past reservation datetimes
     past_reservations = []
-    print(f"DEBUG: Now is {now}")
     for res in past_reservations_raw:
         res_dict = dict(res)
         if res_dict['reserved_datetime']:
             try:
                 dt = datetime.fromisoformat(res_dict['reserved_datetime'])
-                print(f"DEBUG: Reservation time: {dt}, Is past? {dt <= now}")
                 # Only include past reservations
                 if dt <= now:
                     if dt.tzinfo is not None:
@@ -1575,9 +1569,6 @@ def export_history():
     
     query += ' ORDER BY c.checked_out_at DESC'
     
-    print(f"DEBUG EXPORT: start_date={start_date}, end_date={end_date}")
-    print(f"DEBUG EXPORT: Query params: {params}")
-    print(f"DEBUG EXPORT: Query: {query}")
 
     history = conn.execute(query, params).fetchall()
     conn.close()

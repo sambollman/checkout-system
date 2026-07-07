@@ -15,9 +15,6 @@ SERVER_URL = os.getenv('SERVER_URL', 'http://localhost:5000')
 KIOSK_USER = os.getenv('KIOSK_USER', 'kiosk')
 KIOSK_PASS = os.getenv('KIOSK_PASS', 'change-this-in-production')
 
-print(f"DEBUG: SERVER_URL={SERVER_URL}")
-print(f"DEBUG: KIOSK_USER={KIOSK_USER}")
-print(f"DEBUG: KIOSK_PASS={KIOSK_PASS}")
 
 class KioskGUI:
     def __init__(self, kiosk_id='kiosk1'):
@@ -163,19 +160,14 @@ class KioskGUI:
                 timeout=5,
                 verify=False
             )
-            print(f"DEBUG: API response status = {response.status_code}")
-            print(f"DEBUG: API response = {response.text}")
 
             if response.status_code == 201:
                 data = response.json()
-                print(f"DEBUG: data = {data}")
-                print(f"DEBUG: user dict = {data.get('user')}")
                 return True, data['user']  # Return user dict on success
             else:
                 error_msg = response.json().get('error', 'Unknown error')
                 return False, error_msg
         except Exception as e:
-            print(f"DEBUG: Exception in register_user_api: {e}")
             return False, str(e)
     
     def register_equipment_api(self, fob_id, vehicle_name, category, location):
@@ -1373,10 +1365,7 @@ class KioskGUI:
         
         # Bulk checkout via API
         fob_ids = [fob['id'] for fob in items_to_checkout]
-        print(f"DEBUG: Checking out fob_ids: {fob_ids}")
-        print(f"DEBUG: User ID: {self.current_user['id']}")
         success, result = self.bulk_checkout_api(self.current_user['id'], fob_ids)
-        print(f"DEBUG: API result - success: {success}, result: {result}")
 
         if not success:
             self.show_error(f"Bulk checkout failed: {result}")
@@ -1610,9 +1599,7 @@ class KioskGUI:
 
         # Include who marked it unavailable
         full_reason = f"{reason} (marked by {user['first_name']} {user['last_name']})" if reason else f"Marked by {user['first_name']} {user['last_name']}"
-        print(f"DEBUG complete_mark_unavailable: fob_id={fob['id']}, user_id={user['id']}, reason={full_reason}")
         success, error = self.mark_unavailable_api(fob['id'], user['id'], full_reason)
-        print(f"DEBUG complete_mark_unavailable: success={success}, error={error}")
 
         if not success:
             self.show_error(f"Failed to mark unavailable: {error}")
@@ -1975,22 +1962,17 @@ class KioskGUI:
             self.scan_buffer += event.char
     def process_scan(self, scan_data):
         """Process a scanned card or fob"""
-        print(f"DEBUG process_scan: scan_data={scan_data}, replace_mode={self.replace_mode}")
         # Check if we're in replace mode - bypass lookup for new card/fob
         if self.replace_mode == 'card':
-            print(f"DEBUG: In replace card mode, calling handle_card_scan")
             self.handle_card_scan(scan_data)
             return
         elif self.replace_mode == 'fob':
-            print(f"DEBUG: In replace fob mode, calling handle_fob_scan")
             self.handle_fob_scan(scan_data)
             return
 
 
-        print(f"DEBUG: About to call lookup_api")
         # Look up via API
         found, data = self.lookup_api('scan', scan_data)
-        print(f"DEBUG: lookup_api returned found={found}, data={data}")
         # If we went offline, stop processing
         if data == 'OFFLINE':
             return
@@ -2044,7 +2026,6 @@ class KioskGUI:
     
     def handle_card_scan(self, card_id):
         """Handle a card scan"""
-        print(f"DEBUG handle_card_scan: card_id={card_id}, replace_mode={self.replace_mode}, replace_item={self.replace_item}")
         
         # Check if in unavailable mode - need keycard to confirm
         if self.unavailable_mode and not self.current_user:
@@ -2055,7 +2036,6 @@ class KioskGUI:
             self.current_user = user
             
             # If we already have a fob selected (from list), complete it
-            print(f"DEBUG: pending_unavailable_fob={self.pending_unavailable_fob}")
             if self.pending_unavailable_fob:
                 self.complete_mark_unavailable(self.pending_unavailable_fob, user)
             else:
@@ -2306,8 +2286,6 @@ class KioskGUI:
             
             # User data returned from API
             user = result
-            print(f"DEBUG: user keys = {user.keys()}")
-            print(f"DEBUG: user = {user}")
         self.current_user = user
         self.last_scan_time = datetime.now()
         self.show_user_greeting(user)
@@ -2338,7 +2316,7 @@ class KioskGUI:
         
         # Check if in note mode
         if self.note_mode:
-            print("DEBUG: In note mode, fob_id:", fob_id)
+
             found, fob = self.lookup_api('fob', fob_id)
             
             if not found or not fob:
@@ -2493,8 +2471,6 @@ class KioskGUI:
             
             # Equipment data returned from API
             fob = result
-            print(f"DEBUT: fob keys = {fob.keys()}")
-            print(f"DEBUG: fob = {fob}")    
             self.notify_server()
    
             # If user already scanned card, check out the new fob immediately
@@ -2636,7 +2612,6 @@ class KioskGUI:
                 
                 # Get reservation from fob data (already included from API lookup)
                 reservation = fob.get('reservation')
-                print(f"DEBUG: Reservation from API: {reservation}")
                 
                 if reservation:
                     reserved_for = ""
