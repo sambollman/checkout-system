@@ -2604,6 +2604,64 @@ class KioskGUI:
         else:
             # Check it out
             if self.current_user:
+                # Check if item is unavailable
+                if fob.get('is_available') == 0:
+                    self.clear_message_frame()
+                    
+                    tk.Label(self.message_frame, text="🚫", font=font.Font(size=120),
+                          fg='#9E9E9E', bg='black').pack(pady=(30, 10))
+                    
+                    tk.Label(self.message_frame, text=f"{fob['vehicle_name']} is UNAVAILABLE",
+                          font=self.header_font, fg='#9E9E9E', bg='black').pack(pady=(0, 10))
+                    
+                    if fob.get('note') and fob['note'].get('note_text'):
+                        tk.Label(self.message_frame, text=fob['note']['note_text'],
+                              font=self.body_font, fg='#FF9800', bg='black',
+                              wraplength=800, justify='center').pack(pady=(0, 20))
+                    
+                    tk.Label(self.message_frame, text="This item has been marked unavailable.",
+                          font=self.body_font, fg='white', bg='black').pack(pady=(0, 20))
+                    
+                    button_frame = tk.Frame(self.message_frame, bg='black')
+                    button_frame.pack(pady=10)
+                    
+                    def on_mark_available_with_user():
+                        self.pending_fob = fob
+                        self.pending_fob_mark_available = True
+                        # User already scanned - complete immediately
+                        success, error = self.mark_available_api(fob['id'], self.current_user['id'])
+                        if not success:
+                            self.show_error(f"Failed to mark available: {error}")
+                            return
+                        success, error = self.checkout_api(self.current_user['id'], fob['id'])
+                        if not success:
+                            self.show_error(f"Checkout failed: {error}")
+                            return
+                        self.notify_server()
+                        self.pending_fob = None
+                        self.pending_fob_mark_available = False
+                        current = self.current_user
+                        self.current_user = None
+                        self.show_checkout_success(fob['vehicle_name'], fob['category'])
+                    
+                    def on_cancel_unavailable():
+                        self.current_user = None
+                        self.show_welcome()
+                    
+                    tk.Button(button_frame, text="✅ Mark Available & Check Out",
+                          font=font.Font(size=16, weight='bold'),
+                          bg='#4CAF50', fg='white', width=28, height=2,
+                          command=on_mark_available_with_user).pack(side='left', padx=10)
+                    
+                    tk.Button(button_frame, text="❌ Cancel",
+                          font=font.Font(size=16, weight='bold'),
+                          bg='#f44336', fg='white', width=12, height=2,
+                          command=on_cancel_unavailable).pack(side='left', padx=10)
+                    
+                    self.instructions_label.config(text="Session will timeout after 60 seconds")
+                    self.last_scan_time = datetime.now()
+                    return
+
                 # Check if reserved - use Python datetime for proper timezone handling
                 from tkinter import messagebox
                 
