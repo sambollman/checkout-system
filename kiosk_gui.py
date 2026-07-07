@@ -1608,8 +1608,10 @@ class KioskGUI:
         reason = self.get_text_input("Reason for marking unavailable\n(e.g., 'MDC issue - reported to I.S.')")
         self.last_scan_time = datetime.now()
 
-        print(f"DEBUG complete_mark_unavailable: fob_id={fob['id']}, user_id={user['id']}, reason={reason}")
-        success, error = self.mark_unavailable_api(fob['id'], user['id'], reason or '')
+        # Include who marked it unavailable
+        full_reason = f"{reason} (marked by {user['first_name']} {user['last_name']})" if reason else f"Marked by {user['first_name']} {user['last_name']}"
+        print(f"DEBUG complete_mark_unavailable: fob_id={fob['id']}, user_id={user['id']}, reason={full_reason}")
+        success, error = self.mark_unavailable_api(fob['id'], user['id'], full_reason)
         print(f"DEBUG complete_mark_unavailable: success={success}, error={error}")
 
         if not success:

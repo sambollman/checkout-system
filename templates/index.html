@@ -900,38 +900,36 @@ body {
             if (!gridDiv) return;
             
             // Update the grid with new cards
-            gridDiv.innerHTML = items.map(key => `
-                <div class="key-card ${key.checkout_id ? 'checked-out' : 'available'}">
-                    <div class="vehicle-name">${key.vehicle_name}</div>
-                    ${key.checkout_id ? `
-                        <div class="status checked-out">
-                            <strong>Checked out to:</strong><br>
-                            ${key.first_name} ${key.last_name}<br>
-                            <small>Since ${key.checked_out_at}</small>
-                        </div>
-                    ` : `
-                        <div class="status available">
-                            ✓ Available
-                        </div>
-                    `}
-                    ${key.reservation ? `
-                        <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
-                            📅 Reserved<br>
-                            <small>
-                                ${key.reservation.first_name ? `For: ${key.reservation.first_name} ${key.reservation.last_name}<br>` : ''}
-                                ${key.reservation.reserved_for_name ? `For: ${key.reservation.reserved_for_name}<br>` : ''}
-                                Time: ${key.reservation.reserved_datetime}<br>
-                                ${key.reservation.reason || ''}
-                            </small>
-                        </div>
-                    ` : ''}
-                    ${key.note ? `
-                        <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
-                            ⚠️ Note: ${key.note.note_text}
-                        </div>
-                    ` : ''}
-                </div>
-            `).join('');
+            gridDiv.innerHTML = items.map(key => {
+                const cardClass = key.checkout_id ? 'checked-out' : (key.is_available == 0 && key.is_available !== null && key.is_available !== undefined ? 'unavailable' : 'available');
+                let statusHtml = '';
+                if (key.checkout_id) {
+                    statusHtml = `<div class="status checked-out"><strong>Checked out to:</strong><br>${key.first_name} ${key.last_name}<br><small>Since ${key.checked_out_at}</small></div>`;
+                } else if (key.is_available == 0 && key.is_available !== null && key.is_available !== undefined) {
+                    statusHtml = `<div class="status unavailable">🚫 Unavailable</div>`;
+                } else {
+                    statusHtml = `<div class="status available">✓ Available</div>`;
+                }
+                let noteHtml = '';
+                if (key.note) {
+                    if (key.note.note_text.startsWith('UNAVAILABLE:')) {
+                        noteHtml = `<div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">🚫 ${key.note.note_text.substring(12).trim()}</div>`;
+                    } else {
+                        noteHtml = `<div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">⚠️ Note: ${key.note.note_text}</div>`;
+                    }
+                }
+                const reservationHtml = key.reservation ? `
+                    <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        📅 Reserved<br>
+                        <small>
+                            ${key.reservation.first_name ? `For: ${key.reservation.first_name} ${key.reservation.last_name}<br>` : ''}
+                            ${key.reservation.reserved_for_name ? `For: ${key.reservation.reserved_for_name}<br>` : ''}
+                            Time: ${key.reservation.reserved_datetime}<br>
+                            ${key.reservation.reason || ''}
+                        </small>
+                    </div>` : '';
+                return `<div class="key-card ${cardClass}"><div class="vehicle-name">${key.vehicle_name}</div>${statusHtml}${reservationHtml}${noteHtml}</div>`;
+            }).join('');
         }
         
         // Fetch initial data and poll for updates every 5 seconds as backup
