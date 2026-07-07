@@ -609,17 +609,13 @@ def api_mark_unavailable():
         ''', (fob_id,))
         
         # Add a note if reason provided
-        username = session.get('username', 'Admin')
         if reason:
-            full_reason = f"{reason} (marked by {username})"
-        else:
-            full_reason = f"Marked by {username}"
-        # Remove existing note first
-        conn.execute('DELETE FROM notes WHERE fob_id = ?', (fob_id,))
-        conn.execute('''
-            INSERT INTO notes (fob_id, note_text, created_at)
-            VALUES (?, ?, ?)
-        ''', (fob_id, f'UNAVAILABLE: {full_reason}', datetime.now(chicago_tz).isoformat()))
+            # Remove existing note first
+            conn.execute('DELETE FROM notes WHERE fob_id = ?', (fob_id,))
+            conn.execute('''
+                INSERT INTO notes (fob_id, note_text, created_at)
+                VALUES (?, ?, ?)
+            ''', (fob_id, f'UNAVAILABLE: {reason}', datetime.now(chicago_tz).isoformat()))
         
         conn.commit()
         conn.close()
