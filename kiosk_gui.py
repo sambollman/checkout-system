@@ -26,10 +26,13 @@ class KioskGUI:
         self.scan_timeout = 60
         self.last_scan_time = None
         self.pending_fob = None
+        self.pending_fob_mark_available = False
         self.replace_mode = None # 'card' or 'fob'
         self.replace_item = None # The item being replaced
         self.note_mode = False
         self.barns_scan_mode = False
+        self.unavailable_mode = False
+        self.pending_unavailable_fob = None
         self.bulk_checkout_mode = False
         self.bulk_items = []
 
@@ -99,12 +102,15 @@ class KioskGUI:
         # Reset all state
         self.current_user = None
         self.pending_fob = None
+        self.pending_fob_mark_available = False
         self.bulk_checkout_mode = False
         self.bulk_items = []
         self.replace_mode = None
         self.replace_item = None
         self.note_mode = False
         self.barns_scan_mode = False
+        self.unavailable_mode = False
+        self.pending_unavailable_fob = None
         
         # Return to welcome
         self.show_welcome()
@@ -246,6 +252,56 @@ class KioskGUI:
                     self.show_offline_screen()
                     return False, None
                 return False, str(e)
+
+
+    def mark_unavailable_api(self, fob_id, user_id, reason=''):
+        """Mark equipment as unavailable via API"""
+        try:
+            response = requests.post(
+                f'{SERVER_URL}/api/mark_unavailable',
+                auth=(KIOSK_USER, KIOSK_PASS),
+                json={
+                    'fob_id': fob_id,
+                    'user_id': user_id,
+                    'reason': reason
+                },
+                timeout=5,
+                verify=False
+            )
+            if response.status_code == 200:
+                return True, None
+            else:
+                error_msg = response.json().get('error', 'Unknown error')
+                return False, error_msg
+        except Exception as e:
+            if self.is_network_error(e):
+                self.show_offline_screen()
+                return False, None
+            return False, str(e)
+
+    def mark_available_api(self, fob_id, user_id):
+        """Mark equipment as available via API"""
+        try:
+            response = requests.post(
+                f'{SERVER_URL}/api/mark_available',
+                auth=(KIOSK_USER, KIOSK_PASS),
+                json={
+                    'fob_id': fob_id,
+                    'user_id': user_id
+                },
+                timeout=5,
+                verify=False
+            )
+            if response.status_code == 200:
+                return True, None
+            else:
+                error_msg = response.json().get('error', 'Unknown error')
+                return False, error_msg
+        except Exception as e:
+            if self.is_network_error(e):
+                self.show_offline_screen()
+                return False, None
+            return False, str(e)
 
     def bulk_checkout_api(self, user_id, fob_ids):
         """Bulk checkout multiple items via API"""
@@ -998,7 +1054,24 @@ class KioskGUI:
             command=self.replace_card
         )
         card_btn.pack(side='left', padx=10)
- 
+
+        # Button container - Third row
+        button_frame3 = tk.Frame(self.message_frame, bg='black')
+        button_frame3.pack(pady=10)
+
+        # Mark Unavailable button
+        unavailable_btn = tk.Button(
+            button_frame3,
+            text="🚫 Mark Unavailable",
+            font=font.Font(size=16, weight='bold'),
+            bg='#f44336',
+            fg='white',
+            width=20,
+            height=2,
+            command=self.start_mark_unavailable
+        )
+        unavailable_btn.pack(side='left', padx=10)
+
         # Instructions
         self.entry.focus_set()
         self.instructions_label.config(text="")
@@ -1377,6 +1450,184 @@ class KioskGUI:
     def replace_card(self):
         """Button handler for replacing card"""
         self.start_replace_card_mode()
+
+    def start_mark_unavailable(self):
+        """Start mark unavailable mode"""
+        from tkinter import Toplevel, Button, Label
+
+        # Ask if they have the fob
+        result = [None]
+
+        def on_yes():
+            result[0] = True
+            dialog.destroy()
+
+        def on_no():
+            result[0] = False
+            dialog.destroy()
+
+        dialog = Toplevel(self.root)
+        dialog.title("Mark Unavailable")
+        dialog.geometry("700x400")
+        dialog.configure(bg='white')
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        Label(dialog, text="🚫", font=font.Font(size=80),
+              bg='white', fg='#f44336').pack(pady=(30, 20))
+
+        Label(dialog, text="Do you have the equipment with you?",
+              font=font.Font(size=20, weight='bold'), bg='white').pack(pady=(0, 30))
+
+        button_frame = tk.Frame(dialog, bg='white')
+        button_frame.pack(pady=20)
+
+        Button(button_frame, text="Yes - I'll Scan It", command=on_yes,
+               font=font.Font(size=18), bg='#4CAF50', fg='white',
+               width=18, height=2).pack(side='left', padx=10)
+
+        Button(button_frame, text="No - Select from List", command=on_no,
+               font=font.Font(size=18), bg='#2196F3', fg='white',
+               width=20, height=2).pack(side='left', padx=10)
+
+        dialog.wait_window()
+
+        if result[0] is True:
+            # Scan mode - first ask for keycard
+            self.unavailable_mode = True
+            self.clear_message_frame()
+
+            tk.Label(self.message_frame, text="🚫", font=font.Font(size=120),
+                  fg='#f44336', bg='black').pack(pady=(50, 30))
+
+            tk.Label(self.message_frame, text="Mark Unavailable",
+                  font=self.header_font, fg='#f44336', bg='black').pack(pady=(0, 20))
+
+            tk.Label(self.message_frame, text="Scan your keycard first",
+                  font=self.body_font, fg='white', bg='black').pack()
+
+            self.last_scan_time = datetime.now()
+
+        elif result[0] is False:
+            self.show_equipment_list_for_unavailable()
+        else:
+            self.show_welcome()
+
+    def show_equipment_list_for_unavailable(self):
+        """Show list of equipment to select for marking unavailable"""
+        from tkinter import Toplevel, Button, Label, Listbox, Scrollbar, SINGLE
+
+        success, all_items = self.list_equipment_api()
+
+        if not success or not all_items:
+            self.show_error("No equipment found")
+            return
+
+        result = [None]
+
+        def on_select():
+            selection = listbox.curselection()
+            if selection and selection[0] in item_indices:
+                actual_index = item_indices[selection[0]]
+                result[0] = all_items[actual_index]
+                dialog.destroy()
+
+        dialog = Toplevel(self.root)
+        dialog.title("Mark Unavailable - Select Equipment")
+        dialog.geometry("900x850")
+        dialog.configure(bg='white')
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        Label(dialog, text="🚫 Mark Equipment Unavailable",
+              font=font.Font(size=20, weight='bold'), bg='white').pack(pady=(20, 10))
+
+        Label(dialog, text="Select the equipment:",
+              font=font.Font(size=14), bg='white').pack(pady=(0, 20))
+
+        list_frame = tk.Frame(dialog, bg='white')
+        list_frame.pack(fill='both', expand=True, padx=20, pady=(0, 20))
+
+        scrollbar = Scrollbar(list_frame)
+        scrollbar.pack(side='right', fill='y')
+
+        listbox = Listbox(list_frame, font=font.Font(size=14), height=25,
+                         yscrollcommand=scrollbar.set, selectmode=SINGLE)
+        listbox.pack(side='left', fill='both', expand=True)
+        scrollbar.config(command=listbox.yview)
+
+        item_indices = {}
+        listbox_index = 0
+        current_category = None
+
+        for i, item in enumerate(all_items):
+            if item['category'] != current_category:
+                current_category = item['category']
+                listbox.insert('end', f"--- {current_category} ---")
+                listbox.itemconfig(listbox_index, {'bg': '#E0E0E0', 'fg': '#666'})
+                listbox_index += 1
+            listbox.insert('end', f"  {item['vehicle_name']}")
+            item_indices[listbox_index] = i
+            listbox_index += 1
+
+        button_frame = tk.Frame(dialog, bg='white')
+        button_frame.pack(pady=20)
+
+        Button(button_frame, text="Mark Unavailable", command=on_select,
+               font=font.Font(size=16), bg='#f44336', fg='white',
+               width=18, height=2).pack(side='left', padx=10)
+
+        Button(button_frame, text="Cancel", command=dialog.destroy,
+               font=font.Font(size=16), bg='#999', fg='white',
+               width=12, height=2).pack(side='left', padx=10)
+
+        dialog.wait_window()
+
+        if result[0]:
+            # Need keycard first - store selected fob and prompt for card
+            self.pending_unavailable_fob = result[0]
+            self.unavailable_mode = True
+            self.clear_message_frame()
+
+            tk.Label(self.message_frame, text="🚫", font=font.Font(size=120),
+                  fg='#f44336', bg='black').pack(pady=(50, 30))
+
+            tk.Label(self.message_frame, text=f"Marking {result[0]['vehicle_name']} Unavailable",
+                  font=self.header_font, fg='#f44336', bg='black', justify='center').pack(pady=(0, 20))
+
+            tk.Label(self.message_frame, text="Scan your keycard to confirm",
+                  font=self.body_font, fg='white', bg='black').pack()
+
+            self.last_scan_time = datetime.now()
+        else:
+            self.show_welcome()
+
+    def complete_mark_unavailable(self, fob, user):
+        """Complete the mark unavailable process"""
+        # Ask for reason
+        reason = self.get_text_input("Reason for marking unavailable\n(e.g., 'MDC issue - reported to I.S.')")
+        self.last_scan_time = datetime.now()
+
+        print(f"DEBUG complete_mark_unavailable: fob_id={fob['id']}, user_id={user['id']}, reason={reason}")
+        success, error = self.mark_unavailable_api(fob['id'], user['id'], reason or '')
+        print(f"DEBUG complete_mark_unavailable: success={success}, error={error}")
+
+        if not success:
+            self.show_error(f"Failed to mark unavailable: {error}")
+            return
+
+        self.notify_server()
+        self.unavailable_mode = False
+        self.pending_unavailable_fob = None
+        self.current_user = None
+
+        self.clear_message_frame()
+        tk.Label(self.message_frame, text="🚫", font=font.Font(size=120),
+              fg='#f44336', bg='black').pack(pady=(50, 30))
+        tk.Label(self.message_frame, text=f"{fob['vehicle_name']}\nmarked unavailable",
+              font=self.header_font, fg='#f44336', bg='black', justify='center').pack()
+
+        self.root.after(3000, self.show_welcome)
 
     def barns_transfer(self):
         """Transfer vehicle to The Barns"""
@@ -1792,6 +2043,29 @@ class KioskGUI:
     def handle_card_scan(self, card_id):
         """Handle a card scan"""
         print(f"DEBUG handle_card_scan: card_id={card_id}, replace_mode={self.replace_mode}, replace_item={self.replace_item}")
+        
+        # Check if in unavailable mode - need keycard to confirm
+        if self.unavailable_mode and not self.current_user:
+            found, user = self.lookup_api('user', card_id)
+            if not found or not user:
+                self.show_error("Unknown card. Please register at the admin panel.")
+                return
+            self.current_user = user
+            
+            # If we already have a fob selected (from list), complete it
+            print(f"DEBUG: pending_unavailable_fob={self.pending_unavailable_fob}")
+            if self.pending_unavailable_fob:
+                self.complete_mark_unavailable(self.pending_unavailable_fob, user)
+            else:
+                # Waiting for fob scan
+                self.clear_message_frame()
+                tk.Label(self.message_frame, text="🚫", font=font.Font(size=120),
+                      fg='#f44336', bg='black').pack(pady=(50, 30))
+                tk.Label(self.message_frame, text=f"Hello {user['first_name']}!\nNow scan the item to mark unavailable",
+                      font=self.header_font, fg='#f44336', bg='black', justify='center').pack(pady=(0, 20))
+                self.last_scan_time = datetime.now()
+            return
+
         # Check if in bulk checkout mode
         if self.bulk_checkout_mode and not self.current_user:
             # Look up user via API
@@ -1866,6 +2140,31 @@ class KioskGUI:
 
         # Check if there's a pending fob to check out
         if hasattr(self, 'pending_fob') and self.pending_fob:
+            # Check if we're marking available + checkout
+            if self.pending_fob_mark_available:
+                found, user = self.lookup_api('user', card_id)
+                if not found or not user:
+                    self.show_error("Unknown card. Please register at the admin panel.")
+                    return
+                # Mark available first
+                success, error = self.mark_available_api(self.pending_fob['id'], user['id'])
+                if not success:
+                    self.show_error(f"Failed to mark available: {error}")
+                    return
+                # Then check out
+                success, error = self.checkout_api(user['id'], self.pending_fob['id'])
+                if not success:
+                    self.show_error(f"Checkout failed: {error}")
+                    return
+                self.notify_server()
+                fob_name = self.pending_fob['vehicle_name']
+                fob_category = self.pending_fob['category']
+                self.pending_fob = None
+                self.pending_fob_mark_available = False
+                self.current_user = None
+                self.show_checkout_success(fob_name, fob_category)
+                return
+
             # Look up user via API
             found, user = self.lookup_api('user', card_id)
             if not found or not user:
@@ -2014,6 +2313,27 @@ class KioskGUI:
 
     def handle_fob_scan(self, fob_id):
         """Handle a fob scan"""
+        
+        # Check if in unavailable mode - fob scan to mark unavailable
+        if self.unavailable_mode:
+            found, fob = self.lookup_api('fob', fob_id)
+            if not found or not fob:
+                self.show_error("Unknown fob")
+                return
+            if self.current_user:
+                # Card already scanned, complete it
+                self.complete_mark_unavailable(fob, self.current_user)
+            else:
+                # Card not scanned yet - store fob and prompt for card
+                self.pending_unavailable_fob = fob
+                self.clear_message_frame()
+                tk.Label(self.message_frame, text="🚫", font=font.Font(size=120),
+                      fg='#f44336', bg='black').pack(pady=(50, 30))
+                tk.Label(self.message_frame, text=f"{fob['vehicle_name']}\nScan your keycard to confirm",
+                      font=self.header_font, fg='#f44336', bg='black', justify='center').pack(pady=(0, 20))
+                self.last_scan_time = datetime.now()
+            return
+        
         # Check if in note mode
         if self.note_mode:
             print("DEBUG: In note mode, fob_id:", fob_id)
@@ -2395,6 +2715,55 @@ class KioskGUI:
                 self.show_checkout_success(fob['vehicle_name'], fob['category'])
                 self.current_user = None
             else:
+                
+                # Check if item is unavailable
+                if fob.get('is_available') == 0:
+                    self.clear_message_frame()
+                    
+                    tk.Label(self.message_frame, text="🚫", font=font.Font(size=120),
+                          fg='#9E9E9E', bg='black').pack(pady=(30, 10))
+                    
+                    tk.Label(self.message_frame, text=f"{fob['vehicle_name']} is UNAVAILABLE",
+                          font=self.header_font, fg='#9E9E9E', bg='black').pack(pady=(0, 10))
+                    
+                    # Show note/reason if exists
+                    if fob.get('note') and fob['note'].get('note_text'):
+                        tk.Label(self.message_frame, text=fob['note']['note_text'],
+                              font=self.body_font, fg='#FF9800', bg='black',
+                              wraplength=800, justify='center').pack(pady=(0, 20))
+                    
+                    tk.Label(self.message_frame, text="This item has been marked unavailable.",
+                          font=self.body_font, fg='white', bg='black').pack(pady=(0, 20))
+                    
+                    button_frame = tk.Frame(self.message_frame, bg='black')
+                    button_frame.pack(pady=10)
+                    
+                    def on_mark_available():
+                        self.pending_fob = fob
+                        self.pending_fob_mark_available = True
+                        self.clear_message_frame()
+                        tk.Label(self.message_frame, text="✅", font=font.Font(size=120),
+                              fg='#4CAF50', bg='black').pack(pady=(50, 30))
+                        tk.Label(self.message_frame, text=f"Scan your keycard to\nmark available & check out",
+                              font=self.header_font, fg='#4CAF50', bg='black', justify='center').pack()
+                        self.last_scan_time = datetime.now()
+                    
+                    def on_cancel():
+                        self.show_welcome()
+                    
+                    tk.Button(button_frame, text="✅ Mark Available & Check Out",
+                          font=font.Font(size=16, weight='bold'),
+                          bg='#4CAF50', fg='white', width=28, height=2,
+                          command=on_mark_available).pack(side='left', padx=10)
+                    
+                    tk.Button(button_frame, text="❌ Cancel",
+                          font=font.Font(size=16, weight='bold'),
+                          bg='#f44336', fg='white', width=12, height=2,
+                          command=on_cancel).pack(side='left', padx=10)
+                    
+                    self.instructions_label.config(text="Session will timeout after 60 seconds")
+                    self.last_scan_time = datetime.now()
+                    return
                 
                 # Show available message and wait for card
                 self.clear_message_frame()

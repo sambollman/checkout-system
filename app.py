@@ -73,6 +73,7 @@ def index():
             kf.vehicle_name,
             kf.category,
             kf.location,
+            kf.is_available,
             u.first_name,
             u.last_name,
             c.checked_out_at,
@@ -219,10 +220,10 @@ def index():
     # Equipment and Key Rings: Sort by checked-out status first, then alphabetically
     def status_then_name_sort(item):
         # Return tuple: (0 if checked out, 1 if available), then natural sort key
-        is_available = 0 if item.get('checkout_id') else 1
+        sort_priority = 0 if item.get('checkout_id') else 1
         name_parts = [int(text) if text.isdigit() else text.lower() 
                      for text in re.split('([0-9]+)', item['vehicle_name'])]
-        return (is_available, name_parts)
+        return (sort_priority, name_parts)
     
     equipment = sorted([k for k in formatted_keys if k['category'] == 'Equipment'], 
                       key=status_then_name_sort)
@@ -252,6 +253,7 @@ def get_current_status():
             kf.vehicle_name,
             kf.category,
             kf.location,
+            kf.is_available,
             u.first_name,
             u.last_name,
             c.checked_out_at,
@@ -380,10 +382,10 @@ def get_current_status():
     # Equipment and Key Rings: Sort by checked-out status first, then alphabetically
     def status_then_name_sort(item):
         # Return tuple: (0 if checked out, 1 if available), then natural sort key
-        is_available = 0 if item.get('checkout_id') else 1
+        sort_priority = 0 if item.get('checkout_id') else 1
         name_parts = [int(text) if text.isdigit() else text.lower() 
                      for text in re.split('([0-9]+)', item['vehicle_name'])]
-        return (is_available, name_parts)
+        return (sort_priority, name_parts)
     
     equipment = sorted([k for k in formatted_keys if k['category'] == 'Equipment'], 
                       key=status_then_name_sort)
@@ -580,6 +582,81 @@ def api_checkin():
         socketio.emit('status_update', get_current_status())
         
         return {'status': 'success', 'message': 'Checked in successfully'}, 200
+    except Exception as e:
+        conn.close()
+        return {'error': str(e)}, 500
+
+
+@app.route('/api/mark_unavailable', methods=['POST'])
+@require_kiosk_auth
+def api_mark_unavailable():
+    """Mark a fob as unavailable"""
+    data = request.get_json()
+    
+    fob_id = data.get('fob_id')
+    user_id = data.get('user_id')
+    reason = data.get('reason', '')
+    
+    if not fob_id:
+        return {'error': 'Missing fob_id'}, 400
+    
+    chicago_tz = pytz.timezone('America/Chicago')
+    conn = get_db()
+    
+    try:
+        conn.execute('''
+            UPDATE key_fobs SET is_available = 0 WHERE id = ?
+        ''', (fob_id,))
+        
+        # Add a note if reason provided
+        if reason:
+            # Remove existing note first
+            conn.execute('DELETE FROM notes WHERE fob_id = ?', (fob_id,))
+            conn.execute('''
+                INSERT INTO notes (fob_id, note_text, created_at)
+                VALUES (?, ?, ?)
+            ''', (fob_id, f'UNAVAILABLE: {reason}', datetime.now(chicago_tz).isoformat()))
+        
+        conn.commit()
+        conn.close()
+        
+        socketio.emit('status_update', get_current_status())
+        
+        return {'status': 'success', 'message': 'Marked as unavailable'}, 200
+    except Exception as e:
+        conn.close()
+        return {'error': str(e)}, 500
+
+@app.route('/api/mark_available', methods=['POST'])
+@require_kiosk_auth
+def api_mark_available():
+    """Mark a fob as available"""
+    data = request.get_json()
+    
+    fob_id = data.get('fob_id')
+    user_id = data.get('user_id')
+    
+    if not fob_id:
+        return {'error': 'Missing fob_id'}, 400
+    
+    conn = get_db()
+    
+    try:
+        conn.execute('''
+            UPDATE key_fobs SET is_available = 1 WHERE id = ?
+        ''', (fob_id,))
+        
+        # Remove unavailable note if it exists
+        conn.execute("""
+            DELETE FROM notes WHERE fob_id = ? AND note_text LIKE 'UNAVAILABLE:%'
+        """, (fob_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        socketio.emit('status_update', get_current_status())
+        
+        return {'status': 'success', 'message': 'Marked as available'}, 200
     except Exception as e:
         conn.close()
         return {'error': str(e)}, 500

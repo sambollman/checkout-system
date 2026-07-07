@@ -23,7 +23,8 @@ def init_db():
             first_name TEXT NOT NULL,
             last_name TEXT NOT NULL,
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            is_active BOOLEAN DEFAULT 1
+            is_active BOOLEAN DEFAULT 1,
+            is_available BOOLEAN DEFAULT 1
         )
     ''')
     
@@ -36,7 +37,8 @@ def init_db():
 	    category TEXT DEFAULT 'Vehicle',	
             location TEXT DEFAULT 'Station',
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            is_active BOOLEAN DEFAULT 1
+            is_active BOOLEAN DEFAULT 1,
+            is_available BOOLEAN DEFAULT 1
         )
     ''')
     
