@@ -1465,6 +1465,53 @@ def activate_fob(fob_id):
     
     return redirect(url_for('admin_dashboard'))
 
+@app.route('/admin/fob/mark_unavailable/<int:fob_id>', methods=['GET', 'POST'])
+def admin_mark_unavailable(fob_id):
+    """Mark a fob as unavailable from admin panel"""
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    
+    conn = get_db()
+    fob = conn.execute('SELECT * FROM key_fobs WHERE id = ?', (fob_id,)).fetchone()
+    
+    if request.method == 'POST':
+        reason = request.form.get('reason', '').strip()
+        chicago_tz = pytz.timezone('America/Chicago')
+        
+        conn.execute('UPDATE key_fobs SET is_available = 0 WHERE id = ?', (fob_id,))
+        
+        if reason:
+            # Remove existing note first
+            conn.execute('DELETE FROM notes WHERE fob_id = ?', (fob_id,))
+            conn.execute('''
+                INSERT INTO notes (fob_id, note_text, created_at)
+                VALUES (?, ?, ?)
+            ''', (fob_id, f'UNAVAILABLE: {reason}', datetime.now(chicago_tz).isoformat()))
+        
+        conn.commit()
+        conn.close()
+        socketio.emit('status_update', get_current_status())
+        return redirect(url_for('admin_dashboard'))
+    
+    conn.close()
+    return render_template('mark_unavailable.html', fob=fob)
+
+@app.route('/admin/fob/mark_available/<int:fob_id>')
+def admin_mark_available(fob_id):
+    """Mark a fob as available from admin panel"""
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    
+    conn = get_db()
+    conn.execute('UPDATE key_fobs SET is_available = 1 WHERE id = ?', (fob_id,))
+    # Remove unavailable note if exists
+    conn.execute("DELETE FROM notes WHERE fob_id = ? AND note_text LIKE 'UNAVAILABLE:%'", (fob_id,))
+    conn.commit()
+    conn.close()
+    
+    socketio.emit('status_update', get_current_status())
+    return redirect(url_for('admin_dashboard'))
+
 @app.route('/admin/export/history')
 def export_history():
     """Export checkout history as CSV with optional filters"""

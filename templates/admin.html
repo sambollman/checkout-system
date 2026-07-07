@@ -483,6 +483,11 @@
                 {% else %}
                     <a href="/admin/fob/note/add/{{ fob.id }}" class="btn" style="background: #FFC107; color: black;">Add Note</a>
                 {% endif %}
+                {% if fob.is_available %}
+                    <a href="/admin/fob/mark_unavailable/{{ fob.id }}#fobs" class="btn" style="background: #9E9E9E; color: white;" onclick="return confirm('Mark as unavailable?')">Mark Unavailable</a>
+                {% else %}
+                    <a href="/admin/fob/mark_available/{{ fob.id }}#fobs" class="btn btn-success" onclick="return confirm('Mark as available?')">Mark Available</a>
+                {% endif %}
                 {% if fob.is_active %}
                     <a href="/admin/fob/deactivate/{{ fob.id }}#fobs" class="btn btn-danger">Deactivate</a>
                 {% else %}
