@@ -32,6 +32,7 @@ class KioskGUI:
         self.pending_unavailable_fob = None
         self.bulk_checkout_mode = False
         self.bulk_items = []
+        self.add_new_mode = False
 
 
         # Create main window
@@ -102,12 +103,14 @@ class KioskGUI:
         self.pending_fob_mark_available = False
         self.bulk_checkout_mode = False
         self.bulk_items = []
+        self.add_new_mode = False
         self.replace_mode = None
         self.replace_item = None
         self.note_mode = False
         self.barns_scan_mode = False
         self.unavailable_mode = False
         self.pending_unavailable_fob = None
+        self.add_new_mode = False
         
         # Return to welcome
         self.show_welcome()
@@ -953,6 +956,7 @@ class KioskGUI:
         self.current_user = None
         self.bulk_checkout_mode = False
         self.bulk_items = []
+        self.add_new_mode = False
     
         # Big icon/emoji
         icon_label = tk.Label(
@@ -1063,6 +1067,19 @@ class KioskGUI:
             command=self.start_mark_unavailable
         )
         unavailable_btn.pack(side='left', padx=10)
+
+        # Add New button
+        add_new_btn = tk.Button(
+            button_frame3,
+            text="➕ Add New",
+            font=font.Font(size=16, weight='bold'),
+            bg='#009688',
+            fg='white',
+            width=15,
+            height=2,
+            command=self.start_add_new
+        )
+        add_new_btn.pack(side='left', padx=10)
 
         # Instructions
         self.entry.focus_set()
@@ -1418,6 +1435,7 @@ class KioskGUI:
         # Reset and return to welcome
         self.bulk_checkout_mode = False
         self.bulk_items = []
+        self.add_new_mode = False
         self.current_user = None
         self.root.after(4000, self.show_welcome)
 
@@ -1425,6 +1443,7 @@ class KioskGUI:
         """Cancel bulk checkout and return to welcome"""
         self.bulk_checkout_mode = False
         self.bulk_items = []
+        self.add_new_mode = False
         self.current_user = None
         self.show_welcome()
     
@@ -1617,6 +1636,35 @@ class KioskGUI:
               font=self.header_font, fg='#f44336', bg='black', justify='center').pack()
 
         self.root.after(3000, self.show_welcome)
+
+    def start_add_new(self):
+        """Start add new user/item mode"""
+        self.add_new_mode = True
+        self.clear_message_frame()
+
+        tk.Label(self.message_frame, text="➕", font=font.Font(size=120),
+              fg='#009688', bg='black').pack(pady=(50, 30))
+
+        tk.Label(self.message_frame, text="Add New User or Item",
+              font=self.header_font, fg='#009688', bg='black').pack(pady=(0, 20))
+
+        tk.Label(self.message_frame, text="Scan the keycard or equipment fob to register it",
+              font=self.body_font, fg='white', bg='black').pack(pady=(0, 20))
+
+        cancel_btn = tk.Button(
+            self.message_frame,
+            text="❌ Cancel",
+            font=font.Font(size=16, weight='bold'),
+            bg='#f44336',
+            fg='white',
+            width=15,
+            height=2,
+            command=self.show_welcome
+        )
+        cancel_btn.pack(pady=20)
+
+        self.instructions_label.config(text="Session will timeout after 60 seconds")
+        self.last_scan_time = datetime.now()
 
     def barns_transfer(self):
         """Transfer vehicle to The Barns"""
@@ -1983,7 +2031,9 @@ class KioskGUI:
                 self.handle_card_scan(scan_data)
             else:  # It's a fob
                 self.handle_fob_scan(scan_data)
-        else:
+        elif self.add_new_mode:
+            # Unknown scan in add new mode - ask if card or equipment
+            self.add_new_mode = False  # Reset mode
             # Ask if card or equipment with custom larger dialog
             from tkinter import Toplevel, Button, Label
             
@@ -2022,6 +2072,18 @@ class KioskGUI:
                 self.handle_card_scan(scan_data)
             else:
                 self.handle_fob_scan(scan_data)
+        else:
+            # Unknown scan outside of add new mode - show error
+            self.clear_message_frame()
+            tk.Label(self.message_frame, text="❓", font=font.Font(size=120),
+                  fg='#666', bg='black').pack(pady=(50, 30))
+            tk.Label(self.message_frame, text="Not Recognized",
+                  font=self.header_font, fg='#666', bg='black').pack(pady=(0, 20))
+            tk.Label(self.message_frame, text="Use the 'Add New' button to register a new user or item",
+                  font=self.body_font, fg='white', bg='black',
+                  wraplength=800, justify='center').pack()
+            self.instructions_label.config(text="")
+            self.root.after(3000, self.show_welcome)
 
     
     def handle_card_scan(self, card_id):
