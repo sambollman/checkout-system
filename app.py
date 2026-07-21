@@ -1907,6 +1907,56 @@ def reserve_fob(fob_id):
     conn.close()
     return render_template('reserve_fob.html', fob=fob, users=users)
 
+@app.route('/admin/reservation/new', methods=['GET', 'POST'])
+def new_reservation():
+    """Create a new reservation from the reservations tab"""
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    
+    chicago_tz = pytz.timezone('America/Chicago')
+    conn = get_db()
+    
+    if request.method == 'POST':
+        fob_id = request.form.get('fob_id')
+        user_id = request.form.get('user_id') or None
+        reserved_for_name = request.form.get('reserved_for_name')
+        reserved_datetime = request.form.get('reserved_datetime')
+        end_datetime = request.form.get('end_datetime') or None
+        display_hours_before = int(request.form.get('display_hours_before', 24))
+        reason = request.form.get('reason')
+        created_by = session.get('username', 'admin')
+        
+        dt = datetime.strptime(reserved_datetime, '%Y-%m-%dT%H:%M')
+        dt = chicago_tz.localize(dt)
+        
+        end_dt_iso = None
+        if end_datetime:
+            try:
+                end_dt = datetime.strptime(end_datetime, '%Y-%m-%dT%H:%M')
+                end_dt = chicago_tz.localize(end_dt)
+                end_dt_iso = end_dt.isoformat()
+            except:
+                pass
+        
+        conn.execute('''
+            INSERT INTO reservations (fob_id, user_id, reserved_for_name, reserved_datetime,
+                end_datetime, display_hours_before, reason, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (fob_id, user_id, reserved_for_name, dt.isoformat(),
+               end_dt_iso, display_hours_before, reason, created_by))
+        conn.commit()
+        conn.close()
+        
+        socketio.emit('status_update', get_current_status())
+        return redirect(url_for('admin_dashboard') + '#reservations')
+    
+    fobs = conn.execute('''
+        SELECT * FROM key_fobs WHERE is_active = 1 ORDER BY category, vehicle_name
+    ''').fetchall()
+    users = conn.execute('SELECT * FROM users WHERE is_active = 1 ORDER BY last_name, first_name').fetchall()
+    conn.close()
+    return render_template('new_reservation.html', fobs=fobs, users=users)
+
 @app.route('/admin/reservation/bulk', methods=['GET', 'POST'])
 def bulk_reserve():
     """Create reservations for multiple items at once"""
