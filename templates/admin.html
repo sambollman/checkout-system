@@ -772,6 +772,7 @@
         }
         function filterFobs() {
             const filter = document.getElementById('categoryFilter').value;
+            localStorage.setItem('fobCategoryFilter', filter);
             const table = document.getElementById('fobsTable');
             const rows = table.getElementsByTagName('tr');
             let visibleCount = 0;
@@ -796,6 +797,18 @@
                 countEl.textContent = visibleCount + ' item(s) in this category';
             }
         }
+        // Restore fob category filter on page load
+        (function() {
+            const saved = localStorage.getItem('fobCategoryFilter');
+            if (saved) {
+                const select = document.getElementById('categoryFilter');
+                if (select) {
+                    select.value = saved;
+                    filterFobs();
+                }
+            }
+        })();
+
         function showExportForm() {
             document.getElementById('exportForm').style.display = 'block';
         }
@@ -805,6 +818,18 @@
     </script>
 
     <script>
+        // Restore fob category filter on page load
+        (function() {
+            const saved = localStorage.getItem('fobCategoryFilter');
+            if (saved) {
+                const select = document.getElementById('categoryFilter');
+                if (select) {
+                    select.value = saved;
+                    filterFobs();
+                }
+            }
+        })();
+
         function showExportForm() {
             document.getElementById('exportForm').style.display = 'block';
         }

@@ -1783,16 +1783,60 @@ def edit_fob(fob_id):
         vehicle_name = request.form.get('vehicle_name')
         category = request.form.get('category')
         location = request.form.get('location')
+        make = request.form.get('make') or None
+        model = request.form.get('model') or None
+        year = request.form.get('year') or None
         
-        conn.execute('UPDATE key_fobs SET vehicle_name = ?, category = ?, location = ? WHERE id = ?',
-                    (vehicle_name, category, location, fob_id))
+        conn.execute('UPDATE key_fobs SET vehicle_name = ?, category = ?, location = ?, make = ?, model = ?, year = ? WHERE id = ?',
+                    (vehicle_name, category, location, make, model, year, fob_id))
         conn.commit()
         conn.close()
         return redirect(url_for('admin_dashboard') + '#fobs')
     
     fob = conn.execute('SELECT * FROM key_fobs WHERE id = ?', (fob_id,)).fetchone()
+    assignments = conn.execute('''
+        SELECT va.*, u.first_name, u.last_name
+        FROM vehicle_assignments va
+        JOIN users u ON va.user_id = u.id
+        WHERE va.fob_id = ?
+        ORDER BY va.shift
+    ''', (fob_id,)).fetchall()
+    users = conn.execute('SELECT * FROM users WHERE is_active = 1 ORDER BY last_name, first_name').fetchall()
     conn.close()
-    return render_template('edit_fob.html', fob=fob)
+    return render_template('edit_fob.html', fob=fob, assignments=assignments, users=users)
+
+@app.route('/admin/fob/assignment/add/<int:fob_id>', methods=['POST'])
+def add_assignment(fob_id):
+    """Add a vehicle assignment"""
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    
+    user_id = request.form.get('user_id')
+    shift = request.form.get('shift')
+    
+    if user_id and shift:
+        conn = get_db()
+        conn.execute(
+            'INSERT INTO vehicle_assignments (fob_id, user_id, shift) VALUES (?, ?, ?)',
+            (fob_id, user_id, shift)
+        )
+        conn.commit()
+        conn.close()
+    
+    return redirect(f'/admin/fob/edit/{fob_id}#assignments')
+
+@app.route('/admin/fob/assignment/delete/<int:assignment_id>/<int:fob_id>')
+def delete_assignment(assignment_id, fob_id):
+    """Delete a vehicle assignment"""
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    
+    conn = get_db()
+    conn.execute('DELETE FROM vehicle_assignments WHERE id = ?', (assignment_id,))
+    conn.commit()
+    conn.close()
+    
+    return redirect(f'/admin/fob/edit/{fob_id}#assignments')
 
 @app.route('/admin/user/replace/<int:user_id>', methods=['GET', 'POST'])
 def replace_user(user_id):

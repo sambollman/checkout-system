@@ -75,9 +75,79 @@
             <label>Location:</label>
             <input type="text" name="location" value="{{ fob.location }}" required>
             
+            {% if fob.category in ['Squad Cars', 'CID Vehicles', 'Specialized Services Vehicles'] %}
+            <label>Year:</label>
+            <input type="text" name="year" value="{{ fob.year or '' }}" placeholder="e.g., 2023">
+            
+            <label>Make:</label>
+            <input type="text" name="make" value="{{ fob.make or '' }}" placeholder="e.g., Ford">
+            
+            <label>Model:</label>
+            <input type="text" name="model" value="{{ fob.model or '' }}" placeholder="e.g., Explorer">
+            {% endif %}
+            
             <button type="submit" class="save-btn">Save Changes</button>
             <a href="/admin#fobs"><button type="button" class="cancel-btn">Cancel</button></a>
         </form>
+
+        {% if fob.category in ['Squad Cars', 'CID Vehicles', 'Specialized Services Vehicles'] %}
+        <div id="assignments" style="margin-top: 30px; border-top: 2px solid #ddd; padding-top: 20px;">
+            <h2>Vehicle Assignments</h2>
+            
+            {% if assignments %}
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                <tr style="background: #f5f5f5;">
+                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Officer</th>
+                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Shift</th>
+                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Actions</th>
+                </tr>
+                {% for assignment in assignments %}
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">{{ assignment.last_name }}, {{ assignment.first_name }}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">{{ assignment.shift }}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        <a href="/admin/fob/assignment/delete/{{ assignment.id }}/{{ fob.id }}" 
+                           style="background: #f44336; color: white; padding: 4px 10px; border-radius: 4px; text-decoration: none; font-size: 13px;"
+                           onclick="return confirm('Remove this assignment?')">Remove</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+            {% else %}
+            <p style="color: #999;">No assignments yet.</p>
+            {% endif %}
+
+            <h3>Add Assignment</h3>
+            <form action="/admin/fob/assignment/add/{{ fob.id }}" method="POST" style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                <div>
+                    <label style="display: block; font-weight: bold; margin-bottom: 5px;">Officer:</label>
+                    <select name="user_id" required style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">-- Select Officer --</option>
+                        {% for user in users %}
+                        <option value="{{ user.id }}">{{ user.last_name }}, {{ user.first_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; font-weight: bold; margin-bottom: 5px;">Shift:</label>
+                    <select name="shift" required style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">-- Select Shift --</option>
+                        <option value="Days Red">Days Red</option>
+                        <option value="Days Blue">Days Blue</option>
+                        <option value="Evenings Red">Evenings Red</option>
+                        <option value="Evenings Blue">Evenings Blue</option>
+                        <option value="Mids Red">Mids Red</option>
+                        <option value="Mids Blue">Mids Blue</option>
+                        <option value="Nights Red">Nights Red</option>
+                        <option value="Nights Blue">Nights Blue</option>
+                    </select>
+                </div>
+                <div>
+                    <button type="submit" style="background: #4CAF50; color: white; padding: 8px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">Add</button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
     </div>
 </body>
 </html>

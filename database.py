@@ -24,7 +24,10 @@ def init_db():
             last_name TEXT NOT NULL,
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             is_active BOOLEAN DEFAULT 1,
-            is_available BOOLEAN DEFAULT 1
+            is_available BOOLEAN DEFAULT 1,
+            make TEXT,
+            model TEXT,
+            year TEXT
         )
     ''')
     
@@ -38,7 +41,10 @@ def init_db():
             location TEXT DEFAULT 'Station',
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             is_active BOOLEAN DEFAULT 1,
-            is_available BOOLEAN DEFAULT 1
+            is_available BOOLEAN DEFAULT 1,
+            make TEXT,
+            model TEXT,
+            year TEXT
         )
     ''')
     
@@ -91,6 +97,16 @@ def init_db():
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             created_by TEXT,
             FOREIGN KEY (fob_id) REFERENCES key_fobs (id)
+        )
+    ''')
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS vehicle_assignments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fob_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            shift TEXT NOT NULL,
+            FOREIGN KEY (fob_id) REFERENCES key_fobs (id),
+            FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
     conn.commit()
