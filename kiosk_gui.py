@@ -420,7 +420,7 @@ class KioskGUI:
             return False, str(e)
 
 
-    def add_note_api(self, fob_id, note_text, expires_at=None):
+    def add_note_api(self, fob_id, note_text, expires_at=None, created_by='kiosk'):
         """Add note via API"""
         try:
             response = requests.post(
@@ -429,7 +429,8 @@ class KioskGUI:
                 json={
                     'fob_id': fob_id,
                     'note_text': note_text,
-                    'expires_at': expires_at
+                    'expires_at': expires_at,
+                    'created_by': created_by
                 },
                 timeout=5,
                 verify=False
@@ -3201,14 +3202,20 @@ class KioskGUI:
                 return
         
         # Show text input (either new note or replacing existing)
-        result = {'note': None, 'expires_at': None}
+        result = {'note': None, 'expires_at': None, 'created_by': None}
         
         def on_submit():
             note_text = text_widget.get("1.0", "end-1c").strip()
             if not note_text:
                 return
             
+            created_by = name_entry.get().strip()
+            if not created_by:
+                name_entry.config(bg='#ffcccc')
+                return
+            
             result['note'] = note_text
+            result['created_by'] = created_by
             
             # Check if expiration is set
             if has_expiration.get():
@@ -3267,6 +3274,17 @@ class KioskGUI:
             text_widget.insert("1.0", existing_note['note_text'])
         
         text_widget.focus()
+
+        # Name field
+        Label(dialog, text="Your name (required):",
+              font=font.Font(size=14), bg='white').pack(pady=(10, 0))
+        
+        name_entry = Entry(dialog, font=font.Font(size=16), width=30)
+        name_entry.pack(pady=(5, 10), padx=20)
+        
+        # Pre-fill name if existing note has created_by
+        if existing_note and existing_note.get('created_by') and existing_note['created_by'] != 'kiosk':
+            name_entry.insert(0, existing_note['created_by'])
         
         # Expiration checkbox
         has_expiration = BooleanVar(value=False)
@@ -3327,7 +3345,7 @@ class KioskGUI:
             # Save note
             chicago_tz = pytz.timezone('America/Chicago')
             # Add note via API
-            success, error = self.add_note_api(fob['id'], result['note'], result['expires_at'])
+            success, error = self.add_note_api(fob['id'], result['note'], result['expires_at'], result.get('created_by', 'kiosk'))
             if not success:
                 self.show_error(f"Failed to add note: {error}")
                 return

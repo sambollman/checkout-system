@@ -434,10 +434,12 @@ body {
                 {% if key.note.note_text.startswith('UNAVAILABLE:') %}
                     <div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
                         🚫 {{ key.note.note_text[12:].strip() }}
+                        {% if key.note.created_by %}<br><small>By: {{ key.note.created_by }}</small>{% endif %}
                     </div>
                 {% else %}
                     <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
-                        ⚠️ Note: {{ key.note.note_text }}
+                        ⚠️ Note: {{ key.note.note_text }}<br>
+                        {% if key.note.created_by %}<small>By: {{ key.note.created_by }}</small>{% endif %}
                     </div>
                 {% endif %}
             {% endif %}
@@ -485,10 +487,12 @@ body {
                 {% if key.note.note_text.startswith('UNAVAILABLE:') %}
                     <div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
                         🚫 {{ key.note.note_text[12:].strip() }}
+                        {% if key.note.created_by %}<br><small>By: {{ key.note.created_by }}</small>{% endif %}
                     </div>
                 {% else %}
                     <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
-                        ⚠️ Note: {{ key.note.note_text }}
+                        ⚠️ Note: {{ key.note.note_text }}<br>
+                        {% if key.note.created_by %}<small>By: {{ key.note.created_by }}</small>{% endif %}
                     </div>
                 {% endif %}
             {% endif %}
@@ -532,10 +536,12 @@ body {
                 {% if key.note.note_text.startswith('UNAVAILABLE:') %}
                     <div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
                         🚫 {{ key.note.note_text[12:].strip() }}
+                        {% if key.note.created_by %}<br><small>By: {{ key.note.created_by }}</small>{% endif %}
                     </div>
                 {% else %}
                     <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
-                        ⚠️ Note: {{ key.note.note_text }}
+                        ⚠️ Note: {{ key.note.note_text }}<br>
+                        {% if key.note.created_by %}<small>By: {{ key.note.created_by }}</small>{% endif %}
                     </div>
                 {% endif %}
             {% endif %}
@@ -583,10 +589,12 @@ body {
                 {% if key.note.note_text.startswith('UNAVAILABLE:') %}
                     <div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
                         🚫 {{ key.note.note_text[12:].strip() }}
+                        {% if key.note.created_by %}<br><small>By: {{ key.note.created_by }}</small>{% endif %}
                     </div>
                 {% else %}
                     <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
-                        ⚠️ Note: {{ key.note.note_text }}
+                        ⚠️ Note: {{ key.note.note_text }}<br>
+                        {% if key.note.created_by %}<small>By: {{ key.note.created_by }}</small>{% endif %}
                     </div>
                 {% endif %}
             {% endif %}
@@ -635,10 +643,12 @@ body {
                 {% if key.note.note_text.startswith('UNAVAILABLE:') %}
                     <div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
                         🚫 {{ key.note.note_text[12:].strip() }}
+                        {% if key.note.created_by %}<br><small>By: {{ key.note.created_by }}</small>{% endif %}
                     </div>
                 {% else %}
                     <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
-                        ⚠️ Note: {{ key.note.note_text }}
+                        ⚠️ Note: {{ key.note.note_text }}<br>
+                        {% if key.note.created_by %}<small>By: {{ key.note.created_by }}</small>{% endif %}
                     </div>
                 {% endif %}
             {% endif %}
@@ -686,10 +696,12 @@ body {
                 {% if key.note.note_text.startswith('UNAVAILABLE:') %}
                     <div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
                         🚫 {{ key.note.note_text[12:].strip() }}
+                        {% if key.note.created_by %}<br><small>By: {{ key.note.created_by }}</small>{% endif %}
                     </div>
                 {% else %}
                     <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
-                        ⚠️ Note: {{ key.note.note_text }}
+                        ⚠️ Note: {{ key.note.note_text }}<br>
+                        {% if key.note.created_by %}<small>By: {{ key.note.created_by }}</small>{% endif %}
                     </div>
                 {% endif %}
             {% endif %}
@@ -737,10 +749,12 @@ body {
                 {% if key.note.note_text.startswith('UNAVAILABLE:') %}
                     <div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
                         🚫 {{ key.note.note_text[12:].strip() }}
+                        {% if key.note.created_by %}<br><small>By: {{ key.note.created_by }}</small>{% endif %}
                     </div>
                 {% else %}
                     <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
-                        ⚠️ Note: {{ key.note.note_text }}
+                        ⚠️ Note: {{ key.note.note_text }}<br>
+                        {% if key.note.created_by %}<small>By: {{ key.note.created_by }}</small>{% endif %}
                     </div>
                 {% endif %}
             {% endif %}
@@ -788,10 +802,12 @@ body {
                 {% if key.note.note_text.startswith('UNAVAILABLE:') %}
                     <div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
                         🚫 {{ key.note.note_text[12:].strip() }}
+                        {% if key.note.created_by %}<br><small>By: {{ key.note.created_by }}</small>{% endif %}
                     </div>
                 {% else %}
                     <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
-                        ⚠️ Note: {{ key.note.note_text }}
+                        ⚠️ Note: {{ key.note.note_text }}<br>
+                        {% if key.note.created_by %}<small>By: {{ key.note.created_by }}</small>{% endif %}
                     </div>
                 {% endif %}
             {% endif %}
@@ -912,10 +928,11 @@ body {
                 }
                 let noteHtml = '';
                 if (key.note) {
+                    const createdBy = key.note.created_by ? `<br><small>By: ${key.note.created_by}</small>` : '';
                     if (key.note.note_text.startsWith('UNAVAILABLE:')) {
-                        noteHtml = `<div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">🚫 ${key.note.note_text.substring(12).trim()}</div>`;
+                        noteHtml = `<div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">🚫 ${key.note.note_text.substring(12).trim()}${createdBy}</div>`;
                     } else {
-                        noteHtml = `<div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">⚠️ Note: ${key.note.note_text}</div>`;
+                        noteHtml = `<div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">⚠️ Note: ${key.note.note_text}${createdBy}</div>`;
                     }
                 }
                 const reservationHtml = key.reservation ? `

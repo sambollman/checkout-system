@@ -460,6 +460,9 @@
                 {% if fob.note %}
                     <div style="background: #FFF3CD; padding: 5px; border-left: 3px solid #FFC107; color: #000;">
                         <strong style="color: #000;">{{ fob.note.note_text[:50] }}{% if fob.note.note_text|length > 50 %}...{% endif %}</strong><br>
+                        {% if fob.note.created_by %}
+                            <small style="color: #666;">Added by: {{ fob.note.created_by }}</small><br>
+                        {% endif %}
                         {% if fob.note.expires_at %}
                             <small style="color: #FF9800;">⏰ Expires: {{ fob.note.expires_at }}</small>
                         {% else %}

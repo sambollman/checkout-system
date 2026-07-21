@@ -1109,6 +1109,7 @@ def api_add_note():
     fob_id = data.get('fob_id')  # key_fobs table ID
     note_text = data.get('note_text')
     expires_at = data.get('expires_at')  # Optional ISO datetime string
+    created_by = data.get('created_by', 'kiosk')
     
     if not fob_id or not note_text:
         return {'error': 'Missing fob_id or note_text'}, 400
@@ -1124,7 +1125,7 @@ def api_add_note():
         conn.execute('''
             INSERT INTO notes (fob_id, note_text, created_at, created_by, expires_at)
             VALUES (?, ?, ?, ?, ?)
-        ''', (fob_id, note_text, datetime.now(chicago_tz).isoformat(), 'kiosk', expires_at))
+        ''', (fob_id, note_text, datetime.now(chicago_tz).isoformat(), created_by, expires_at))
         
         conn.commit()
         conn.close()
