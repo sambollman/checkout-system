@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bulk Reserve</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f0f0f0; }
+        .form-container { background: white; padding: 30px; border-radius: 8px; max-width: 700px; margin: 0 auto; }
+        h1 { color: #333; }
+        label { display: block; margin-top: 15px; font-weight: bold; }
+        input, select, textarea { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        textarea { height: 80px; resize: vertical; }
+        button { margin-top: 20px; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .save-btn { background-color: #2196F3; color: white; }
+        .cancel-btn { background-color: #666; color: white; margin-left: 10px; }
+        .item-list { max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-top: 5px; }
+        .item-checkbox { display: flex; align-items: center; padding: 5px; border-bottom: 1px solid #f0f0f0; }
+        .item-checkbox:last-child { border-bottom: none; }
+        .item-checkbox input { width: auto; margin-right: 10px; }
+        .category-header { background: #e0e0e0; padding: 5px 10px; font-weight: bold; margin-top: 5px; border-radius: 3px; }
+        .select-all-btn { background: #4CAF50; color: white; padding: 5px 15px; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px; font-size: 14px; }
+        .deselect-all-btn { background: #f44336; color: white; padding: 5px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .selected-count { margin-left: 15px; color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>📅 Bulk Reserve</h1>
+        <p>Select multiple items and create reservations for all of them at once.</p>
+        
+        <form method="POST">
+            <label>Select Items:</label>
+            <div style="margin-bottom: 5px;">
+                <button type="button" class="select-all-btn" onclick="selectAll()">Select All</button>
+                <button type="button" class="deselect-all-btn" onclick="deselectAll()">Deselect All</button>
+                <span class="selected-count" id="selectedCount">0 selected</span>
+            </div>
+            <div class="item-list" id="itemList">
+                {% set current_category = namespace(value="") %}
+                {% for fob in fobs %}
+                    {% if fob.category != current_category.value %}
+                        {% set current_category.value = fob.category %}
+                        <div class="category-header">{{ fob.category }}</div>
+                    {% endif %}
+                    <div class="item-checkbox">
+                        <input type="checkbox" name="fob_ids" value="{{ fob.id }}" id="fob_{{ fob.id }}" onchange="updateCount()">
+                        <label for="fob_{{ fob.id }}" style="font-weight: normal; margin: 0; cursor: pointer;">
+                            {{ fob.vehicle_name }}
+                            {% if fob.checkout_id %}<span style="color: #f44336; font-size: 12px;"> (checked out)</span>{% endif %}
+                        </label>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <label>Reserved For (User):</label>
+            <select name="user_id">
+                <option value="">-- Or type name below --</option>
+                {% for user in users %}
+                <option value="{{ user.id }}">{{ user.last_name }}, {{ user.first_name }}</option>
+                {% endfor %}
+            </select>
+            
+            <label>Reserved For (Name - if not in system):</label>
+            <input type="text" name="reserved_for_name" placeholder="e.g., John Smith">
+            
+            <label>Start Date & Time:</label>
+            <input type="datetime-local" name="reserved_datetime" required>
+            
+            <label>End Date & Time (optional):</label>
+            <input type="datetime-local" name="end_datetime">
+            
+            <label>Display Reservation Starting:</label>
+            <select name="display_hours_before">
+                <option value="24">24 hours before (default)</option>
+                <option value="12">12 hours before</option>
+                <option value="48">48 hours before</option>
+                <option value="72">3 days before</option>
+                <option value="168">1 week before</option>
+                <option value="0">Immediately</option>
+            </select>
+            
+            <label>Reason/Notes:</label>
+            <textarea name="reason" placeholder="e.g., Training exercise, Maintenance scheduled"></textarea>
+            
+            <button type="submit" class="save-btn">Create Reservations</button>
+            <a href="/admin#reservations"><button type="button" class="cancel-btn">Cancel</button></a>
+        </form>
+    </div>
+
+    <script>
+        function updateCount() {
+            const checked = document.querySelectorAll('input[name="fob_ids"]:checked').length;
+            document.getElementById('selectedCount').textContent = checked + ' selected';
+        }
+        
+        function selectAll() {
+            document.querySelectorAll('input[name="fob_ids"]').forEach(cb => cb.checked = true);
+            updateCount();
+        }
+        
+        function deselectAll() {
+            document.querySelectorAll('input[name="fob_ids"]').forEach(cb => cb.checked = false);
+            updateCount();
+        }
+    </script>
+</body>
+</html>

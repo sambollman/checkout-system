@@ -614,6 +614,7 @@
 
 <!-- Active Reservations Tab Content -->
 <div class="tab-content" id="Active Reservations-content">
+    <a href="/admin/reservation/bulk" class="btn" style="background: #2196F3; color: white; margin-bottom: 15px; display: inline-block;">+ Bulk Reserve</a>
     <div style="overflow-x: auto;">
         <table>
             <thead>
@@ -647,6 +648,7 @@
                     <td>{{ res.reason or '—' }}</td>
                     <td>{{ res.created_by }}</td>
                     <td>
+                        <a href="/admin/reservation/edit/{{ res.id }}" class="btn" style="background: #2196F3; color: white;">Edit</a>
                         <a href="/admin/reservation/delete/{{ res.id }}#reservations" class="btn btn-danger"
                            onclick="return confirm('Delete this reservation?')">Delete</a>
                     </td>

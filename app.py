@@ -1907,6 +1907,144 @@ def reserve_fob(fob_id):
     conn.close()
     return render_template('reserve_fob.html', fob=fob, users=users)
 
+@app.route('/admin/reservation/bulk', methods=['GET', 'POST'])
+def bulk_reserve():
+    """Create reservations for multiple items at once"""
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    
+    chicago_tz = pytz.timezone('America/Chicago')
+    conn = get_db()
+    
+    if request.method == 'POST':
+        fob_ids = request.form.getlist('fob_ids')
+        user_id = request.form.get('user_id') or None
+        reserved_for_name = request.form.get('reserved_for_name')
+        reserved_datetime = request.form.get('reserved_datetime')
+        end_datetime = request.form.get('end_datetime') or None
+        display_hours_before = int(request.form.get('display_hours_before', 24))
+        reason = request.form.get('reason')
+        created_by = session.get('username', 'admin')
+        
+        if not fob_ids:
+            conn.close()
+            return redirect(url_for('bulk_reserve'))
+        
+        dt = datetime.strptime(reserved_datetime, '%Y-%m-%dT%H:%M')
+        dt = chicago_tz.localize(dt)
+        
+        end_dt_iso = None
+        if end_datetime:
+            try:
+                end_dt = datetime.strptime(end_datetime, '%Y-%m-%dT%H:%M')
+                end_dt = chicago_tz.localize(end_dt)
+                end_dt_iso = end_dt.isoformat()
+            except:
+                pass
+        
+        for fob_id in fob_ids:
+            conn.execute('''
+                INSERT INTO reservations (fob_id, user_id, reserved_for_name, reserved_datetime, 
+                    end_datetime, display_hours_before, reason, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (int(fob_id), user_id, reserved_for_name, dt.isoformat(),
+                   end_dt_iso, display_hours_before, reason, created_by))
+        
+        conn.commit()
+        conn.close()
+        
+        socketio.emit('status_update', get_current_status())
+        return redirect(url_for('admin_dashboard') + '#reservations')
+    
+    fobs = conn.execute('''
+        SELECT kf.*, c.id as checkout_id
+        FROM key_fobs kf
+        LEFT JOIN checkouts c ON kf.id = c.fob_id AND c.checked_in_at IS NULL
+        WHERE kf.is_active = 1
+        ORDER BY kf.category, kf.vehicle_name
+    ''').fetchall()
+    users = conn.execute('SELECT * FROM users WHERE is_active = 1 ORDER BY last_name, first_name').fetchall()
+    conn.close()
+    return render_template('bulk_reserve.html', fobs=fobs, users=users)
+
+@app.route('/admin/reservation/edit/<int:reservation_id>', methods=['GET', 'POST'])
+def edit_reservation(reservation_id):
+    """Edit an existing reservation"""
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    
+    chicago_tz = pytz.timezone('America/Chicago')
+    conn = get_db()
+    
+    res_raw = conn.execute('''
+        SELECT r.*, kf.vehicle_name
+        FROM reservations r
+        JOIN key_fobs kf ON r.fob_id = kf.id
+        WHERE r.id = ?
+    ''', (reservation_id,)).fetchone()
+    
+    if not res_raw:
+        conn.close()
+        return "Reservation not found", 404
+    
+    if request.method == 'POST':
+        user_id = request.form.get('user_id') or None
+        reserved_for_name = request.form.get('reserved_for_name')
+        reserved_datetime = request.form.get('reserved_datetime')
+        end_datetime = request.form.get('end_datetime') or None
+        display_hours_before = int(request.form.get('display_hours_before', 24))
+        reason = request.form.get('reason')
+        
+        dt = datetime.strptime(reserved_datetime, '%Y-%m-%dT%H:%M')
+        dt = chicago_tz.localize(dt)
+        
+        end_dt_iso = None
+        if end_datetime:
+            try:
+                end_dt = datetime.strptime(end_datetime, '%Y-%m-%dT%H:%M')
+                end_dt = chicago_tz.localize(end_dt)
+                end_dt_iso = end_dt.isoformat()
+            except:
+                pass
+        
+        conn.execute('''
+            UPDATE reservations 
+            SET user_id=?, reserved_for_name=?, reserved_datetime=?, end_datetime=?,
+                display_hours_before=?, reason=?
+            WHERE id=?
+        ''', (user_id, reserved_for_name, dt.isoformat(), end_dt_iso, 
+              display_hours_before, reason, reservation_id))
+        conn.commit()
+        conn.close()
+        
+        socketio.emit('status_update', get_current_status())
+        return redirect(url_for('admin_dashboard') + '#reservations')
+    
+    # Format datetimes for input fields
+    res = dict(res_raw)
+    try:
+        dt = datetime.fromisoformat(res['reserved_datetime'])
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(chicago_tz)
+        res['reserved_datetime_input'] = dt.strftime('%Y-%m-%dT%H:%M')
+    except:
+        res['reserved_datetime_input'] = res['reserved_datetime']
+    
+    if res.get('end_datetime'):
+        try:
+            end_dt = datetime.fromisoformat(res['end_datetime'])
+            if end_dt.tzinfo is not None:
+                end_dt = end_dt.astimezone(chicago_tz)
+            res['end_datetime_input'] = end_dt.strftime('%Y-%m-%dT%H:%M')
+        except:
+            res['end_datetime_input'] = res['end_datetime']
+    else:
+        res['end_datetime_input'] = ''
+    
+    users = conn.execute('SELECT * FROM users WHERE is_active = 1 ORDER BY last_name, first_name').fetchall()
+    conn.close()
+    return render_template('edit_reservation.html', res=res, users=users)
+
 @app.route('/admin/reservation/delete/<int:reservation_id>')
 def delete_reservation(reservation_id):
     """Delete a reservation"""
