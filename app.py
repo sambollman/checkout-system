@@ -1511,6 +1511,58 @@ def admin_mark_available(fob_id):
     socketio.emit('status_update', get_current_status())
     return redirect(url_for('admin_dashboard'))
 
+@app.route('/admin/fob/barns_transfer/<int:fob_id>')
+def admin_barns_transfer(fob_id):
+    """Transfer a vehicle to The Barns from admin panel"""
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    
+    chicago_tz = pytz.timezone('America/Chicago')
+    conn = get_db()
+    
+    try:
+        # Get or create The Barns user
+        barns_user = conn.execute(
+            'SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', ('BARNS',)
+        ).fetchone()
+        
+        if not barns_user:
+            conn.execute(
+                'INSERT INTO users (card_id, first_name, last_name, is_active) VALUES (?, ?, ?, ?)',
+                ('BARNS', 'The', 'Barns', 1)
+            )
+            conn.commit()
+            barns_user = conn.execute(
+                'SELECT * FROM users WHERE card_id = ? COLLATE NOCASE', ('BARNS',)
+            ).fetchone()
+        
+        # Check current checkout status
+        current_checkout = conn.execute(
+            'SELECT * FROM checkouts WHERE fob_id = ? AND checked_in_at IS NULL', (fob_id,)
+        ).fetchone()
+        
+        if current_checkout:
+            conn.execute(
+                'UPDATE checkouts SET checked_in_at = ? WHERE id = ?',
+                (datetime.now(chicago_tz).isoformat(), current_checkout['id'])
+            )
+        
+        # Check out to The Barns
+        conn.execute(
+            'INSERT INTO checkouts (user_id, fob_id, kiosk_id, checked_out_at) VALUES (?, ?, ?, ?)',
+            (barns_user['id'], fob_id, 'admin', datetime.now(chicago_tz).isoformat())
+        )
+        
+        conn.commit()
+        conn.close()
+        
+        socketio.emit('status_update', get_current_status())
+        return redirect(url_for('admin_dashboard') + '#fobs')
+        
+    except Exception as e:
+        conn.close()
+        return f"Error: {str(e)}", 500
+
 @app.route('/admin/export/history')
 def export_history():
     """Export checkout history as CSV with optional filters"""
