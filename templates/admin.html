@@ -423,7 +423,23 @@
         </form>
     </div>
 
-    <table>
+    <div style="margin-bottom: 15px;">
+        <label style="font-weight: bold;">Filter by Category: </label>
+        <select id="categoryFilter" onchange="filterFobs()" style="padding: 5px; font-size: 14px;">
+            <option value="all">All Categories</option>
+            <option value="Squad Cars">Squad Cars</option>
+            <option value="Specialized Services Vehicles">Specialized Services Vehicles</option>
+            <option value="CID Vehicles">CID Vehicles</option>
+            <option value="Other Vehicles">Other Vehicles</option>
+            <option value="Pool Cars">Pool Cars</option>
+            <option value="Admin Cars">Admin Cars</option>
+            <option value="Equipment">Equipment</option>
+            <option value="Key Rings">Key Rings</option>
+        </select>
+        <span id="fobCount" style="margin-left: 15px; color: #666; font-size: 14px;"></span>
+    </div>
+
+    <table id="fobsTable">
         <tr>
             <th>Fob ID</th>
             <th>Name</th>
@@ -742,6 +758,32 @@
         }
         function hideAddFobForm() {
             document.getElementById('addFobForm').style.display = 'none';
+        }
+        function filterFobs() {
+            const filter = document.getElementById('categoryFilter').value;
+            const table = document.getElementById('fobsTable');
+            const rows = table.getElementsByTagName('tr');
+            let visibleCount = 0;
+
+            for (let i = 1; i < rows.length; i++) {
+                const categoryCell = rows[i].getElementsByTagName('td')[2];
+                if (categoryCell) {
+                    const category = categoryCell.textContent.trim();
+                    if (filter === 'all' || category === filter) {
+                        rows[i].style.display = '';
+                        visibleCount++;
+                    } else {
+                        rows[i].style.display = 'none';
+                    }
+                }
+            }
+
+            const countEl = document.getElementById('fobCount');
+            if (filter === 'all') {
+                countEl.textContent = '';
+            } else {
+                countEl.textContent = visibleCount + ' item(s) in this category';
+            }
         }
         function showExportForm() {
             document.getElementById('exportForm').style.display = 'block';
