@@ -620,7 +620,8 @@
                 <tr>
                     <th>Vehicle/Equipment</th>
                     <th>Reserved For</th>
-                    <th>Reserved Time</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
                     <th>Display Starting</th>
                     <th>Reason</th>
                     <th>Created By</th>
@@ -641,6 +642,7 @@
                         {% endif %}
                     </td>
                     <td>{{ res.reserved_datetime }}</td>
+                    <td>{{ res.end_datetime or '—' }}</td>
                     <td>{{ res.display_hours_before }} hours before</td>
                     <td>{{ res.reason or '—' }}</td>
                     <td>{{ res.created_by }}</td>

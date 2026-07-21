@@ -125,13 +125,16 @@ def index():
         FROM reservations r
         LEFT JOIN users u ON r.user_id = u.id
         JOIN key_fobs kf ON r.fob_id = kf.id
-        WHERE datetime(r.reserved_datetime) > datetime(?)
+        WHERE (
+              datetime(r.reserved_datetime) > datetime(?)
+              OR (r.end_datetime IS NOT NULL AND datetime(r.end_datetime) > datetime(?))
+          )
           AND (
               r.display_hours_before = 0
               OR datetime(r.reserved_datetime, '-' || r.display_hours_before || ' hours') <= datetime(?)
           )
     '''
-    reservations = conn.execute(reservations_query, (now.isoformat(), now.isoformat())).fetchall()
+    reservations = conn.execute(reservations_query, (now.isoformat(), now.isoformat(), now.isoformat())).fetchall()
 
 
     
@@ -187,7 +190,15 @@ def index():
                     dt = datetime.fromisoformat(res_dict['reserved_datetime'])
                     if dt.tzinfo is not None:
                         dt = dt.astimezone(chicago_tz)
-                    res_dict['reserved_datetime'] = dt.strftime('%b %d, %Y %H:%M')  # Match checkout format
+                    res_dict['reserved_datetime'] = dt.strftime('%b %d, %Y %H:%M')
+                except:
+                    pass
+            if res_dict.get('end_datetime'):
+                try:
+                    dt = datetime.fromisoformat(res_dict['end_datetime'])
+                    if dt.tzinfo is not None:
+                        dt = dt.astimezone(chicago_tz)
+                    res_dict['end_datetime'] = dt.strftime('%b %d, %Y %H:%M')
                 except:
                     pass
             key_dict['reservation'] = res_dict
@@ -295,14 +306,17 @@ def get_current_status():
         FROM reservations r
         LEFT JOIN users u ON r.user_id = u.id
         JOIN key_fobs kf ON r.fob_id = kf.id
-        WHERE datetime(r.reserved_datetime) > datetime(?)
+        WHERE (
+              datetime(r.reserved_datetime) > datetime(?)
+              OR (r.end_datetime IS NOT NULL AND datetime(r.end_datetime) > datetime(?))
+          )
           AND (
               r.display_hours_before = 0
               OR datetime(r.reserved_datetime, '-' || r.display_hours_before || ' hours') <= datetime(?)
           )
         ORDER BY r.reserved_datetime ASC
     '''
-    reservations = conn.execute(reservations_query, (now.isoformat(), now.isoformat())).fetchall()
+    reservations = conn.execute(reservations_query, (now.isoformat(), now.isoformat(), now.isoformat())).fetchall()
     
     # Format reservation datetimes
     formatted_reservations = []
@@ -1321,10 +1335,21 @@ def admin_dashboard():
         if res_dict['reserved_datetime']:
             try:
                 dt = datetime.fromisoformat(res_dict['reserved_datetime'])
-                # Only include future reservations
-                if dt > now:
-                    if dt.tzinfo is not None:
-                        dt = dt.astimezone(chicago_tz)
+                if dt.tzinfo is not None:
+                    dt = dt.astimezone(chicago_tz)
+                
+                # Include if future start OR has future end_datetime
+                end_dt = None
+                if res_dict.get('end_datetime'):
+                    try:
+                        end_dt = datetime.fromisoformat(res_dict['end_datetime'])
+                        if end_dt.tzinfo is not None:
+                            end_dt = end_dt.astimezone(chicago_tz)
+                        res_dict['end_datetime'] = end_dt.strftime('%a, %b %d at %I:%M %p')
+                    except:
+                        pass
+                
+                if dt > now or (end_dt and end_dt > now):
                     res_dict['reserved_datetime'] = dt.strftime('%a, %b %d at %I:%M %p')
                     reservations.append(res_dict)
             except:
@@ -1847,6 +1872,7 @@ def reserve_fob(fob_id):
         user_id = request.form.get('user_id') or None
         reserved_for_name = request.form.get('reserved_for_name')
         reserved_datetime = request.form.get('reserved_datetime')
+        end_datetime = request.form.get('end_datetime') or None
         display_hours_before = int(request.form.get('display_hours_before', 24))
         reason = request.form.get('reason')
         created_by = session.get('username', 'admin')
@@ -1856,10 +1882,20 @@ def reserve_fob(fob_id):
         dt = datetime.strptime(reserved_datetime, '%Y-%m-%dT%H:%M')
         dt = chicago_tz.localize(dt)
         
+        # Convert end_datetime if provided
+        end_dt_iso = None
+        if end_datetime:
+            try:
+                end_dt = datetime.strptime(end_datetime, '%Y-%m-%dT%H:%M')
+                end_dt = chicago_tz.localize(end_dt)
+                end_dt_iso = end_dt.isoformat()
+            except:
+                pass
+        
         conn.execute('''
-            INSERT INTO reservations (fob_id, user_id, reserved_for_name, reserved_datetime, display_hours_before, reason, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (fob_id, user_id, reserved_for_name, dt.isoformat(), display_hours_before, reason, created_by))
+            INSERT INTO reservations (fob_id, user_id, reserved_for_name, reserved_datetime, display_hours_before, reason, created_by, end_datetime)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (fob_id, user_id, reserved_for_name, dt.isoformat(), display_hours_before, reason, created_by, end_dt_iso))
         conn.commit()
         conn.close()
         

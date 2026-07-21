@@ -425,7 +425,8 @@ body {
                         {% elif key.reservation.reserved_for_name %}
                             For: {{ key.reservation.reserved_for_name }}<br>
                         {% endif %}
-                        Time: {{ key.reservation.reserved_datetime }}<br>
+                        From: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.end_datetime %}Until: {{ key.reservation.end_datetime }}<br>{% endif %}
                         {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
                     </small>
                 </div>
@@ -478,7 +479,8 @@ body {
                         {% elif key.reservation.reserved_for_name %}
                             For: {{ key.reservation.reserved_for_name }}<br>
                         {% endif %}
-                        Time: {{ key.reservation.reserved_datetime }}<br>
+                        From: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.end_datetime %}Until: {{ key.reservation.end_datetime }}<br>{% endif %}
                         {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
                     </small>
                 </div>
@@ -527,7 +529,8 @@ body {
                         {% elif key.reservation.reserved_for_name %}
                             For: {{ key.reservation.reserved_for_name }}<br>
                         {% endif %}
-                        Time: {{ key.reservation.reserved_datetime }}<br>
+                        From: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.end_datetime %}Until: {{ key.reservation.end_datetime }}<br>{% endif %}
                         {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
                     </small>
                 </div>
@@ -580,7 +583,8 @@ body {
                         {% elif key.reservation.reserved_for_name %}
                             For: {{ key.reservation.reserved_for_name }}<br>
                         {% endif %}
-                        Time: {{ key.reservation.reserved_datetime }}<br>
+                        From: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.end_datetime %}Until: {{ key.reservation.end_datetime }}<br>{% endif %}
                         {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
                     </small>
                 </div>
@@ -634,7 +638,8 @@ body {
                         {% elif key.reservation.reserved_for_name %}
                             For: {{ key.reservation.reserved_for_name }}<br>
                         {% endif %}
-                        Time: {{ key.reservation.reserved_datetime }}<br>
+                        From: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.end_datetime %}Until: {{ key.reservation.end_datetime }}<br>{% endif %}
                         {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
                     </small>
                 </div>
@@ -687,7 +692,8 @@ body {
                         {% elif key.reservation.reserved_for_name %}
                             For: {{ key.reservation.reserved_for_name }}<br>
                         {% endif %}
-                        Time: {{ key.reservation.reserved_datetime }}<br>
+                        From: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.end_datetime %}Until: {{ key.reservation.end_datetime }}<br>{% endif %}
                         {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
                     </small>
                 </div>
@@ -740,7 +746,8 @@ body {
                         {% elif key.reservation.reserved_for_name %}
                             For: {{ key.reservation.reserved_for_name }}<br>
                         {% endif %}
-                        Time: {{ key.reservation.reserved_datetime }}<br>
+                        From: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.end_datetime %}Until: {{ key.reservation.end_datetime }}<br>{% endif %}
                         {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
                     </small>
                 </div>
@@ -793,7 +800,8 @@ body {
                         {% elif key.reservation.reserved_for_name %}
                             For: {{ key.reservation.reserved_for_name }}<br>
                         {% endif %}
-                        Time: {{ key.reservation.reserved_datetime }}<br>
+                        From: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.end_datetime %}Until: {{ key.reservation.end_datetime }}<br>{% endif %}
                         {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
                     </small>
                 </div>

@@ -77,6 +77,7 @@ def init_db():
             reason TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             created_by TEXT,
+            end_datetime TEXT,
             FOREIGN KEY (fob_id) REFERENCES key_fobs (id),
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
