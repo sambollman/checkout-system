@@ -425,6 +425,67 @@ def api_status():
     return get_current_status()
 
 
+@app.route('/api/vehicle/<int:fob_id>')
+def api_vehicle_detail(fob_id):
+    """Get vehicle details including assignments and recent history"""
+    conn = get_db()
+    chicago_tz = pytz.timezone('America/Chicago')
+    
+    # Get fob details
+    fob = conn.execute('SELECT * FROM key_fobs WHERE id = ?', (fob_id,)).fetchone()
+    if not fob:
+        conn.close()
+        return {'error': 'Not found'}, 404
+    
+    fob_dict = dict(fob)
+    
+    # Get assignments
+    assignments = conn.execute('''
+        SELECT va.shift, u.first_name, u.last_name
+        FROM vehicle_assignments va
+        JOIN users u ON va.user_id = u.id
+        WHERE va.fob_id = ?
+        ORDER BY va.shift
+    ''', (fob_id,)).fetchall()
+    fob_dict['assignments'] = [dict(a) for a in assignments]
+    
+    # Get recent checkout history (last 10)
+    history = conn.execute('''
+        SELECT u.first_name, u.last_name, c.checked_out_at, c.checked_in_at, c.kiosk_id
+        FROM checkouts c
+        JOIN users u ON c.user_id = u.id
+        WHERE c.fob_id = ?
+        ORDER BY c.checked_out_at DESC
+        LIMIT 10
+    ''', (fob_id,)).fetchall()
+    
+    formatted_history = []
+    for h in history:
+        h_dict = dict(h)
+        if h_dict['checked_out_at']:
+            try:
+                dt = datetime.fromisoformat(h_dict['checked_out_at'])
+                if dt.tzinfo is None:
+                    dt = pytz.UTC.localize(dt)
+                dt = dt.astimezone(chicago_tz)
+                h_dict['checked_out_at'] = dt.strftime('%b %d, %Y %I:%M %p')
+            except:
+                pass
+        if h_dict['checked_in_at']:
+            try:
+                dt = datetime.fromisoformat(h_dict['checked_in_at'])
+                if dt.tzinfo is None:
+                    dt = pytz.UTC.localize(dt)
+                dt = dt.astimezone(chicago_tz)
+                h_dict['checked_in_at'] = dt.strftime('%b %d, %Y %I:%M %p')
+            except:
+                pass
+        formatted_history.append(h_dict)
+    
+    fob_dict['history'] = formatted_history
+    conn.close()
+    return fob_dict
+
 @app.route('/api/notify', methods=['POST'])
 @require_kiosk_auth
 def api_notify():
