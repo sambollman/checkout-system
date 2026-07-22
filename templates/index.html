@@ -370,6 +370,25 @@ body {
         }
 
 
+        .modal-content-box {
+            background: white;
+            color: #333;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        body.dark-mode .modal-content-box {
+            background: #2d2d2d;
+            color: #ffffff;
+        }
+        body.dark-mode .modal-content-box h2,
+        body.dark-mode .modal-content-box h3 {
+            color: #ffffff !important;
+        }
+        body.dark-mode .modal-content-box #modalMakeModel {
+            color: #bbb !important;
+        }
+        body.dark-mode .modal-content-box div[style*="border-bottom:1px solid #f0f0f0"] {
+            border-bottom-color: #444 !important;
+        }
     </style>
 </head>
 <body>
@@ -399,7 +418,7 @@ body {
 <div class="tab-content active" id="Squad Cars-content">
     <div class="grid">
         {% for key in squad_cars %}
-        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}">
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
                 <div class="status checked-out">
@@ -453,7 +472,7 @@ body {
 <div class="tab-content" id="Specialized Services Vehicles-content">
     <div class="grid">
         {% for key in specialized_vehicles %}
-        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}">
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
                 <div class="status checked-out">
@@ -507,7 +526,7 @@ body {
 <div class="tab-content" id="CID Vehicles-content">
     <div class="grid">
         {% for key in cid_vehicles %}
-        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}">
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
                 <div class="status checked-out">
@@ -557,7 +576,7 @@ body {
 <div class="tab-content" id="Other Vehicles-content">
     <div class="grid">
         {% for key in other_vehicles %}
-        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}">
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
                 <div class="status checked-out">
@@ -612,7 +631,7 @@ body {
 <div class="tab-content" id="Pool Cars-content">
     <div class="grid">
         {% for key in pool_cars %}
-        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}">
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
                 <div class="status checked-out">
@@ -666,7 +685,7 @@ body {
 <div class="tab-content" id="Admin Cars-content">
     <div class="grid">
         {% for key in admin_cars %}
-        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}">
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
                 <div class="status checked-out">
@@ -720,7 +739,7 @@ body {
 <div class="tab-content" id="Equipment-content">
     <div class="grid">
         {% for key in equipment %}
-        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}">
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
                 <div class="status checked-out">
@@ -774,7 +793,7 @@ body {
 <div class="tab-content" id="Key Rings-content">
     <div class="grid">
         {% for key in key_rings %}
-        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}">
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
                 <div class="status checked-out">
@@ -824,31 +843,6 @@ body {
     </div>
 </div>
 
-    
-    <div class="tab-content" id="Equipment-content">    
-    <!-- Card View -->
-    <div class="grid" id="equipmentCards">
-        {% for key in equipment %}
-        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}">
-            <div class="vehicle-name">{{ key.vehicle_name }}</div>
-            {% if key.checkout_id %}
-                <div class="status checked-out">
-                    <strong>Checked out to:</strong><br>
-                    <span class="checkout-name">{{ key.first_name }} {{ key.last_name }}</span><br>
-                    <small>Since {{ key.checked_out_at }}</small>
-                </div>
-            {% elif key.is_available == 0 %}
-                <div class="status unavailable">
-                    🚫 Unavailable
-                </div>
-            {% else %}
-                <div class="status available">
-                    ✓ Available
-                </div>
-            {% endif %}
-        </div>
-        {% endfor %}
-    </div>
     
     <script>
         // Dark mode toggle functionality
@@ -1054,5 +1048,101 @@ body {
 
         });
     </script>
+
+
+
+<!-- Vehicle Detail Modal -->
+<div id="vehicleModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; overflow-y:auto;">
+    <div class="modal-content-box" style="max-width:600px; margin:50px auto; border-radius:12px; padding:30px; position:relative;">
+        <button onclick="closeModal()" style="position:absolute; top:15px; right:15px; background:#f44336; color:white; border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-size:16px;">✕</button>
+        <h2 id="modalTitle" style="margin-top:0; color:#333;"></h2>
+        <div id="modalMakeModel" style="color:#666; margin-bottom:15px;"></div>
+        
+        <div id="modalStatus" style="margin-bottom:20px;"></div>
+        
+        <div id="assignmentsSection" style="margin-bottom:20px;">
+            <h3 style="border-bottom:2px solid #eee; padding-bottom:8px;">Assignments</h3>
+            <div id="modalAssignments"></div>
+        </div>
+        
+        <div id="historySection">
+            <h3 style="border-bottom:2px solid #eee; padding-bottom:8px;">Recent Activity</h3>
+            <div id="modalHistory"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Make tiles clickable
+    document.addEventListener('click', function(e) {
+        const card = e.target.closest('.key-card');
+        if (card) {
+            const fobId = card.getAttribute('data-fob-id');
+            if (fobId) showVehicleDetail(fobId);
+        }
+    });
+
+    function showVehicleDetail(fobId) {
+        document.getElementById('vehicleModal').style.display = 'block';
+        document.getElementById('modalTitle').textContent = 'Loading...';
+        document.getElementById('modalMakeModel').textContent = '';
+        document.getElementById('modalAssignments').textContent = '';
+        document.getElementById('modalHistory').textContent = '';
+        document.getElementById('modalStatus').textContent = '';
+
+        fetch('/api/vehicle/' + fobId)
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('modalTitle').textContent = data.vehicle_name;
+                
+                // Make/model/year
+                if (data.year || data.make || data.model) {
+                    document.getElementById('modalMakeModel').textContent = 
+                        [data.year, data.make, data.model].filter(Boolean).join(' ');
+                }
+                
+                // Assignments
+                const assignEl = document.getElementById('modalAssignments');
+                if (data.assignments && data.assignments.length > 0) {
+                    assignEl.innerHTML = data.assignments.map(a => 
+                        `<div style="padding:6px 0; border-bottom:1px solid #f0f0f0;">
+                            <strong>${a.shift}:</strong> ${a.last_name}, ${a.first_name}
+                        </div>`
+                    ).join('');
+                    document.getElementById('assignmentsSection').style.display = 'block';
+                } else {
+                    document.getElementById('assignmentsSection').style.display = 'none';
+                }
+                
+                // History
+                const histEl = document.getElementById('modalHistory');
+                if (data.history && data.history.length > 0) {
+                    histEl.innerHTML = '<table style="width:100%; border-collapse:collapse;">' +
+                        '<tr style="background:#f5f5f5;"><th style="padding:6px; text-align:left;">Officer</th><th style="padding:6px; text-align:left;">Out</th><th style="padding:6px; text-align:left;">In</th></tr>' +
+                        data.history.map(h => 
+                            `<tr style="border-bottom:1px solid #eee;">
+                                <td style="padding:6px;">${h.last_name}, ${h.first_name}</td>
+                                <td style="padding:6px; font-size:13px;">${h.checked_out_at || '—'}</td>
+                                <td style="padding:6px; font-size:13px;">${h.checked_in_at || 'Still out'}</td>
+                            </tr>`
+                        ).join('') + '</table>';
+                } else {
+                    histEl.innerHTML = '<p style="color:#999;">No checkout history yet.</p>';
+                }
+            })
+            .catch(() => {
+                document.getElementById('modalTitle').textContent = 'Error loading details';
+            });
+    }
+
+    function closeModal() {
+        document.getElementById('vehicleModal').style.display = 'none';
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('vehicleModal').addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+    });
+</script>
 </body>
 </html>
