@@ -276,6 +276,62 @@ location / {
     proxy_set_header X-Real-IP $remote_addr;
 }
 ```
+> The snippet above is the minimal principle. The actual production proxy is
+> more involved — see **Production Reverse Proxy** below.
+
+### Production Reverse Proxy
+
+In production the app sits behind an nginx reverse proxy in the DMZ
+(`pd-checkout.cityoffargo.com.conf`). The proxy terminates TLS and exposes the
+system on **two separate hostnames** with very different trust levels. Both
+redirect port 80 → 443; SSL certs live at `/etc/ssl/cityoffargo/`.
+
+**1. Main site — `pd-checkout.cityoffargo.com`** (full app, staff-facing)
+
+- `location /api/` → proxied **directly** to the app container
+  (`pd-checkout_checkout-app:5000`). These are the kiosk endpoints; the app
+  enforces HTTP Basic Auth (`KIOSK_USER`/`KIOSK_PASS`) on them itself, so they
+  bypass Okta. The proxy clears any client-supplied `X-Auth-Proxy-Username`
+  here so the username header can't be spoofed. (An optional nginx-level check
+  that rejects `/api/*` requests lacking a Basic `Authorization` header is
+  present but commented out — enable only after confirming the upstream still
+  returns `WWW-Authenticate` on bad credentials.)
+- `location /` → proxied to the **Okta auth-proxy** container
+  (`pd-checkout_auth-proxy:3000`), which authenticates the user and sets
+  `X-Auth-Proxy-Username` before forwarding upstream. The `Authorization`
+  header is cleared on this path so Basic Auth only works under `/api/`.
+
+**2. Display site — `pd-checkout-display.cityoffargo.com`** (anonymous kiosk display)
+
+An unattended, read-only dashboard that bypasses Okta. It is meant to be
+**IP-restricted** to the display device(s) (the `allow`/`deny` lines are in the
+config, currently commented — enable them before going live). It strips the
+`Authorization` header and forces `X-Auth-Proxy-Username "Anonymous"` so a
+client on that host can neither authenticate nor spoof a username.
+
+This server block is a strict **allowlist** — only these routes are reachable,
+everything else returns `403`:
+
+| Route | Purpose |
+| --- | --- |
+| `= /` | Dashboard page (GET/HEAD) |
+| `/static/` | Static assets (GET/HEAD) |
+| `/socket.io/` | Live dashboard updates over WebSocket (GET/POST) |
+| `~ ^/api/vehicle/[0-9]+$` | Read-only vehicle-detail modal (GET/HEAD) |
+
+The `/api/vehicle/<id>` route is the only `/api/*` endpoint the display can
+reach — the regex bounds it to numeric IDs, and because every *other* `/api`
+route requires kiosk auth (which is stripped on this host), they would return
+`401` even if the allowlist were widened. The vehicle-detail location
+deliberately sets **no** `proxy_set_header` of its own, so it inherits the
+server-level headers (including the `Authorization ""` and
+`X-Auth-Proxy-Username "Anonymous"` clobbers) — adding even one header there
+would silently disable that inheritance.
+
+> **Note:** `/api/vehicle/<id>` has no auth decorator in the app, so it is
+> reachable unauthenticated on the main site too, and it returns officer names,
+> shift assignments, and recent checkout history. Confirm that exposure is
+> acceptable for the anonymous display, or add a trimmed-payload mode.
 
 ## Environment Variables
 
@@ -515,9 +571,12 @@ checkout-system/
 
 ## API Endpoints (Complete List)
 
-### Public
+### Public (no authentication)
 - `GET /` - Main dashboard
-- `GET /api/status` - Get current system status (JSON, unauthenticated for polling)
+- `GET /api/vehicle/<id>` - Vehicle detail: make/model/year, shift assignments, and
+  recent checkout history (officer names + times). Used by the dashboard's
+  vehicle-detail modal. **Unauthenticated** — reachable on both the main and
+  display sites; see the PII note under Production Reverse Proxy.
 
 ### Admin (OKTA header or password auth)
 - `GET /admin` - Admin dashboard (tabbed interface)
@@ -589,6 +648,8 @@ checkout-system/
 
 
 **System:**
+- `GET /api/status` - Get current system status as JSON (used by the dashboard's
+  5-second polling fallback; live updates come via WebSocket)
 - `POST /api/notify` - Trigger dashboard refresh (WebSocket broadcast)
 
 
