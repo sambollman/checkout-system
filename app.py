@@ -426,7 +426,6 @@ def api_status():
 
 
 @app.route('/api/vehicle/<int:fob_id>')
-@require_kiosk_auth
 def api_vehicle_detail(fob_id):
     """Get vehicle details including assignments and recent history"""
     conn = get_db()

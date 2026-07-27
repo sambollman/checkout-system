@@ -283,11 +283,39 @@ location / {
 
 In production the app sits behind an nginx reverse proxy in the DMZ
 (`pd-checkout.cityoffargo.com.conf`). The proxy terminates TLS and exposes the
-system on **two separate hostnames** with very different trust levels. Both
+system on **three separate hostnames** with very different trust levels. All
 redirect port 80 → 443; SSL certs live at `/etc/ssl/cityoffargo/`.
+
+**Shared internal-network allowlist.** Routes and sites that must only be
+reachable from inside the network `include` a shared snippet
+(`snippets/internal-only.conf`) that lists `allow` rules and ends in `deny all`.
+It currently permits the whole `10.0.0.0/8` range, with a commented placeholder
+for narrowing to specific kiosk/display IPs. Editing that one file tightens
+every place that includes it. (The `allow`/`deny` rules match `$remote_addr`; if
+a load balancer is ever placed in front of this nginx, the realip module is
+needed or the rules will see the LB's address instead of the client's.)
+
+**No browser caching.** The dashboard's JavaScript is inlined in the HTML and
+the page updates live over WebSocket instead of reloading, so a cached page
+leaves users running stale scripts. Both browser-facing paths therefore send
+`Cache-Control: no-store, …` (plus legacy `Pragma`/`Expires`): the main site
+sets it in `location /` (which serves the HTML and static assets via the
+auth-proxy), and the display site sets it at the server level so every location
+inherits it. Each spot first strips any upstream cache header with
+`proxy_hide_header`, because nginx's `add_header` only appends (otherwise
+Flask's own header on static files would produce a duplicate). The kiosk site
+is not affected — it serves only JSON to a headless client. Caveat: nginx
+inherits a server-level `add_header` into a location only if that location sets
+no `add_header` of its own, so adding one to a display location means re-adding
+the cache headers there too.
 
 **1. Main site — `pd-checkout.cityoffargo.com`** (full app, staff-facing)
 
+- `location ~ ^/api/vehicle/[0-9]+$` → the vehicle-detail modal. It exposes
+  officer names, assignments, and checkout history and has **no app-level auth**,
+  so it is restricted to internal networks (`include internal-only.conf`). This
+  regex location takes precedence over the `/api/` prefix below, so it carves
+  out only `/api/vehicle/<id>` — the kiosk endpoints are unaffected.
 - `location /api/` → proxied **directly** to the app container
   (`pd-checkout_checkout-app:5000`). These are the kiosk endpoints; the app
   enforces HTTP Basic Auth (`KIOSK_USER`/`KIOSK_PASS`) on them itself, so they
@@ -295,22 +323,24 @@ redirect port 80 → 443; SSL certs live at `/etc/ssl/cityoffargo/`.
   here so the username header can't be spoofed. (An optional nginx-level check
   that rejects `/api/*` requests lacking a Basic `Authorization` header is
   present but commented out — enable only after confirming the upstream still
-  returns `WWW-Authenticate` on bad credentials.)
+  returns `WWW-Authenticate` on bad credentials.) **Transitional:** once kiosks
+  are repointed to the dedicated kiosk site (below), this exception can be
+  removed so the site is 100% behind Okta.
 - `location /` → proxied to the **Okta auth-proxy** container
   (`pd-checkout_auth-proxy:3000`), which authenticates the user and sets
   `X-Auth-Proxy-Username` before forwarding upstream. The `Authorization`
   header is cleared on this path so Basic Auth only works under `/api/`.
 
-**2. Display site — `pd-checkout-display.cityoffargo.com`** (anonymous kiosk display)
+**2. Display site — `pd-checkout-display.cityoffargo.com`** (anonymous read-only display)
 
-An unattended, read-only dashboard that bypasses Okta. It is meant to be
-**IP-restricted** to the display device(s) (the `allow`/`deny` lines are in the
-config, currently commented — enable them before going live). It strips the
-`Authorization` header and forces `X-Auth-Proxy-Username "Anonymous"` so a
-client on that host can neither authenticate nor spoof a username.
+An unattended, read-only dashboard that bypasses Okta. The **entire server
+block is gated on the internal allowlist** (`include internal-only.conf` at the
+server level) — the whole dashboard, not just one route, is internal-only. It
+strips the `Authorization` header and forces `X-Auth-Proxy-Username "Anonymous"`
+so a client can neither authenticate nor spoof a username.
 
-This server block is a strict **allowlist** — only these routes are reachable,
-everything else returns `403`:
+Within that IP gate it is also a strict **path allowlist** — only these routes
+are served, everything else returns `403`:
 
 | Route | Purpose |
 | --- | --- |
@@ -319,19 +349,33 @@ everything else returns `403`:
 | `/socket.io/` | Live dashboard updates over WebSocket (GET/POST) |
 | `~ ^/api/vehicle/[0-9]+$` | Read-only vehicle-detail modal (GET/HEAD) |
 
-The `/api/vehicle/<id>` route is the only `/api/*` endpoint the display can
-reach — the regex bounds it to numeric IDs, and because every *other* `/api`
-route requires kiosk auth (which is stripped on this host), they would return
-`401` even if the allowlist were widened. The vehicle-detail location
-deliberately sets **no** `proxy_set_header` of its own, so it inherits the
-server-level headers (including the `Authorization ""` and
+The two controls are independent: the server-level `include` decides *which
+IPs* may connect; the path allowlist decides *which URLs* are served. The
+`/api/vehicle/<id>` route is the only `/api/*` endpoint reachable here — the
+regex bounds it to numeric IDs, and every *other* `/api` route requires kiosk
+auth (stripped on this host) so it would `401` even if the allowlist were
+widened. That location deliberately sets **no** `proxy_set_header` of its own,
+so it inherits the server-level headers (the `Authorization ""` and
 `X-Auth-Proxy-Username "Anonymous"` clobbers) — adding even one header there
 would silently disable that inheritance.
 
-> **Note:** `/api/vehicle/<id>` has no auth decorator in the app, so it is
-> reachable unauthenticated on the main site too, and it returns officer names,
-> shift assignments, and recent checkout history. Confirm that exposure is
-> acceptable for the anonymous display, or add a trimmed-payload mode.
+**3. Kiosk site — `pd-checkout-kiosk.cityoffargo.com`** (internal-only kiosk API)
+
+A dedicated endpoint for the headless kiosks, so their Basic-Auth API traffic
+does not have to ride on the internet-facing site. The **whole block is gated on
+the internal allowlist** (`include internal-only.conf`). `location /api/` proxies
+to the app with the `Authorization` header **preserved** (kiosks need it for
+Basic Auth) and `X-Auth-Proxy-Username` clobbered; everything else returns `403`.
+Point each kiosk's `SERVER_URL` here. Requires an internal DNS record for the
+hostname and a cert covering it (reuses the cityoffargo cert). Once all kiosks
+are cut over, remove the `/api/` exception from the main site.
+
+> **Note on `/api/vehicle` PII:** the route still has no auth decorator in the
+> app — it returns officer names, shift assignments, and recent checkout
+> history. Exposure is now contained at the proxy: it is internal-only on the
+> main site (dedicated IP-restricted location) and on the display site (whole
+> block IP-gated). If it should be locked down further, add app-level auth or a
+> trimmed-payload mode rather than relying solely on the IP gate.
 
 ## Environment Variables
 
