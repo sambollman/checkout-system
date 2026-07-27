@@ -2,7 +2,9 @@
 echo Starting Bike Station Kiosk...
 
 REM Set server connection details
-set SERVER_URL=http://localhost:5000
+REM SERVER_URL must be the internal-only kiosk host - it is the only hostname
+REM that preserves the Authorization header this kiosk needs for Basic Auth.
+set SERVER_URL=https://pd-checkout-kiosk.cityoffargo.com
 set KIOSK_USER=kiosk
 set KIOSK_PASS=change-this-in-production
 

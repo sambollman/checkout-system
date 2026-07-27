@@ -62,29 +62,43 @@ docker run -d \
 sqlite3 /data/key_checkout.db "INSERT INTO admin_users (username, password_hash) VALUES ('<your.username>', '');"
 ```
 
-### 5. Configure Reverse Proxy (nginx example)
-```nginx
-location / {
-    proxy_pass http://localhost:5000;
-    proxy_set_header <OKTA_HEADER_NAME> $remote_user;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-}
-```
+### 5. Configure Reverse Proxy
+
+> **Do not use a single catch-all `location /` for this system.** In production it
+> is served on three hostnames with three different auth models (Okta staff site,
+> anonymous internal-only display, Basic-Auth internal-only kiosk API). One
+> `proxy_pass` with no path split either breaks the kiosks or exposes the
+> PII-bearing `/api/vehicle/<id>` route to anyone who can reach the host.
+>
+> The authoritative configuration is **README.md -> Production Reverse Proxy**
+> (`pd-checkout.cityoffargo.com.conf` plus `snippets/internal-only.conf`). Follow
+> that section. The minimal one-location snippet that used to be printed here was
+> removed because copying it literally produced an open deployment.
+
+The proxy must satisfy all of these:
+- [ ] TLS terminated at nginx; 80 -> 443 redirect on all three hostnames
+- [ ] Internal DNS records exist for `pd-checkout-display` and `pd-checkout-kiosk`
+- [ ] `X-Auth-Proxy-Username` is set by the auth-proxy and cleared on every path
+      where a client could otherwise supply it
+- [ ] `Authorization` is preserved *only* on the kiosk host's `/api/` location
+- [ ] `snippets/internal-only.conf` is included on the display and kiosk server
+      blocks, and on the main site's `/api/vehicle/` location
 
 ### 6. Verify Deployment
 - [ ] Can access admin panel via public URL
 - [ ] OKTA authentication works
-- [ ] Can add/remove admin users via `/admin/manage_admins`
+- [ ] Can add/remove admin users via `/admin/admins`
 
 ---
 
 ## My Setup Tasks (After IT Deploys)
 
 ### Main Kiosk Computer
+The kiosk is a native application that only calls `/api/*`. It must use the
+dedicated kiosk hostname, not the public staff URL.
 ```batch
 # Edit Start_Kiosk.bat:
-set SERVER_URL=<PUBLIC_URL_FROM_IT>
+set SERVER_URL=https://pd-checkout-kiosk.cityoffargo.com
 set KIOSK_USER=<USERNAME_FROM_IT>
 set KIOSK_PASS=<PASSWORD_FROM_IT>
 ```
@@ -92,16 +106,21 @@ set KIOSK_PASS=<PASSWORD_FROM_IT>
 ### Downtown Trikke Station
 ```batch
 # Edit Start_Trikke_Kiosk.bat:
-set SERVER_URL=<PUBLIC_URL_FROM_IT>
+set SERVER_URL=https://pd-checkout-kiosk.cityoffargo.com
 set KIOSK_USER=<USERNAME_FROM_IT>
 set KIOSK_PASS=<PASSWORD_FROM_IT>
 ```
 
 ### Dashboard Display Computer
+Uses the anonymous read-only display host — no credentials. It serves only the
+dashboard, static assets, the WebSocket, and `/api/vehicle/<id>`.
 ```batch
 # Chrome kiosk mode shortcut:
-chrome.exe --kiosk --app=<PUBLIC_URL_FROM_IT>
+chrome.exe --kiosk --app=https://pd-checkout-display.cityoffargo.com
 ```
+
+Both the kiosk and display hostnames are restricted to internal networks, so
+these machines must be on the internal network to reach them.
 
 ---
 
@@ -123,7 +142,7 @@ chrome.exe --kiosk --app=<PUBLIC_URL_FROM_IT>
 
 ## Post-Deployment Checklist
 
-- [ ] Add admin users via `/admin/manage_admins`
+- [ ] Add admin users via `/admin/admins`
 - [ ] Add all employees to system
 - [ ] Add all equipment/vehicles with fobs
 - [ ] Test checkout/checkin from main kiosk
