@@ -187,7 +187,7 @@ See `KIOSK_INSTALLATION.md` for detailed installation instructions.
 
 **Authorized Admins:**
 
-Admins are managed via `/admin/manage_admins` - no code changes needed!
+Admins are managed via `/admin/admins` - no code changes needed!
 
 1. **Initial Setup:** Add first admin to database:
 ```bash
@@ -196,11 +196,11 @@ sqlite3 /path/to/key_checkout.db "INSERT INTO admin_users (username, password_ha
 
 2. **Adding More Admins:**
    - Log in to admin panel
-   - Go to `/admin/manage_admins`
+   - Go to `/admin/admins`
    - Add usernames (they'll authenticate via Okta)
 
 3. **Removing Admins:**
-   - Go to `/admin/manage_admins`
+   - Go to `/admin/admins`
    - Click "Delete" next to their name
 
 **Note:** In production with Okta, the `password_hash` column is empty. Okta handles authentication, the app only checks if the username exists in the `admin_users` table.
@@ -228,8 +228,9 @@ Before production deployment with OKTA authentication, confirm these details wit
   
 **4. Public URL:**
 - What will the public-facing URL be?
-  - Example: `https://checkout.fargond.gov`
-  - Used for kiosk `SERVER_URL` configuration
+  - Production: `https://pd-checkout.cityoffargo.com` (staff site, behind Okta)
+  - **Not** the kiosk URL — kiosks point at the separate internal-only kiosk
+    host instead. See **Production hostnames** below.
 
 **5. SSL/TLS:**
 - Is HTTPS termination handled by the reverse proxy?
@@ -283,11 +284,39 @@ location / {
 
 In production the app sits behind an nginx reverse proxy in the DMZ
 (`pd-checkout.cityoffargo.com.conf`). The proxy terminates TLS and exposes the
-system on **two separate hostnames** with very different trust levels. Both
+system on **three separate hostnames** with very different trust levels. All
 redirect port 80 → 443; SSL certs live at `/etc/ssl/cityoffargo/`.
+
+**Shared internal-network allowlist.** Routes and sites that must only be
+reachable from inside the network `include` a shared snippet
+(`snippets/internal-only.conf`) that lists `allow` rules and ends in `deny all`.
+It currently permits the whole `10.0.0.0/8` range, with a commented placeholder
+for narrowing to specific kiosk/display IPs. Editing that one file tightens
+every place that includes it. (The `allow`/`deny` rules match `$remote_addr`; if
+a load balancer is ever placed in front of this nginx, the realip module is
+needed or the rules will see the LB's address instead of the client's.)
+
+**No browser caching.** The dashboard's JavaScript is inlined in the HTML and
+the page updates live over WebSocket instead of reloading, so a cached page
+leaves users running stale scripts. Both browser-facing paths therefore send
+`Cache-Control: no-store, …` (plus legacy `Pragma`/`Expires`): the main site
+sets it in `location /` (which serves the HTML and static assets via the
+auth-proxy), and the display site sets it at the server level so every location
+inherits it. Each spot first strips any upstream cache header with
+`proxy_hide_header`, because nginx's `add_header` only appends (otherwise
+Flask's own header on static files would produce a duplicate). The kiosk site
+is not affected — it serves only JSON to a headless client. Caveat: nginx
+inherits a server-level `add_header` into a location only if that location sets
+no `add_header` of its own, so adding one to a display location means re-adding
+the cache headers there too.
 
 **1. Main site — `pd-checkout.cityoffargo.com`** (full app, staff-facing)
 
+- `location ~ ^/api/vehicle/[0-9]+$` → the vehicle-detail modal. It exposes
+  officer names, assignments, and checkout history and has **no app-level auth**,
+  so it is restricted to internal networks (`include internal-only.conf`). This
+  regex location takes precedence over the `/api/` prefix below, so it carves
+  out only `/api/vehicle/<id>` — the kiosk endpoints are unaffected.
 - `location /api/` → proxied **directly** to the app container
   (`pd-checkout_checkout-app:5000`). These are the kiosk endpoints; the app
   enforces HTTP Basic Auth (`KIOSK_USER`/`KIOSK_PASS`) on them itself, so they
@@ -301,16 +330,35 @@ redirect port 80 → 443; SSL certs live at `/etc/ssl/cityoffargo/`.
   `X-Auth-Proxy-Username` before forwarding upstream. The `Authorization`
   header is cleared on this path so Basic Auth only works under `/api/`.
 
-**2. Display site — `pd-checkout-display.cityoffargo.com`** (anonymous kiosk display)
+> **Pending cleanup (kiosks cut over 2026-07-27).** All kiosks now point at the
+> dedicated kiosk site, so the two Okta bypasses above are no longer load-bearing
+> and both can be deleted, leaving this host uniformly behind Okta:
+>
+> 1. **Remove `location /api/`.** Nothing reaches it any more — the kiosks use
+>    `pd-checkout-kiosk`, and the app-level Basic Auth stays where it is.
+> 2. **Remove the `/api/vehicle/[0-9]+$` carve-out** and let that path fall
+>    through to `location /`. The modal's `fetch()` is same-origin from a page
+>    already served through the auth-proxy, so it carries the `authproxy.sid`
+>    cookie and authenticates exactly like the page load did. The IP allowlist
+>    then becomes unnecessary on this host, since Okta is the gate.
+>
+> Caveat for step 2: on an **expired session** the auth-proxy answers an XHR with
+> a redirect to Okta rather than JSON, so `r.json()` throws and the modal fills
+> with `undefined` instead of prompting a login. Guard the fetch in
+> `templates/index.html` (check `r.ok` and the `content-type` before parsing, and
+> reload on mismatch) before or alongside this change. Cosmetic, not a security
+> issue, but it applies to any route moved behind Okta.
 
-An unattended, read-only dashboard that bypasses Okta. It is meant to be
-**IP-restricted** to the display device(s) (the `allow`/`deny` lines are in the
-config, currently commented — enable them before going live). It strips the
-`Authorization` header and forces `X-Auth-Proxy-Username "Anonymous"` so a
-client on that host can neither authenticate nor spoof a username.
+**2. Display site — `pd-checkout-display.cityoffargo.com`** (anonymous read-only display)
 
-This server block is a strict **allowlist** — only these routes are reachable,
-everything else returns `403`:
+An unattended, read-only dashboard that bypasses Okta. The **entire server
+block is gated on the internal allowlist** (`include internal-only.conf` at the
+server level) — the whole dashboard, not just one route, is internal-only. It
+strips the `Authorization` header and forces `X-Auth-Proxy-Username "Anonymous"`
+so a client can neither authenticate nor spoof a username.
+
+Within that IP gate it is also a strict **path allowlist** — only these routes
+are served, everything else returns `403`:
 
 | Route | Purpose |
 | --- | --- |
@@ -319,19 +367,50 @@ everything else returns `403`:
 | `/socket.io/` | Live dashboard updates over WebSocket (GET/POST) |
 | `~ ^/api/vehicle/[0-9]+$` | Read-only vehicle-detail modal (GET/HEAD) |
 
-The `/api/vehicle/<id>` route is the only `/api/*` endpoint the display can
-reach — the regex bounds it to numeric IDs, and because every *other* `/api`
-route requires kiosk auth (which is stripped on this host), they would return
-`401` even if the allowlist were widened. The vehicle-detail location
-deliberately sets **no** `proxy_set_header` of its own, so it inherits the
-server-level headers (including the `Authorization ""` and
+The two controls are independent: the server-level `include` decides *which
+IPs* may connect; the path allowlist decides *which URLs* are served. The
+`/api/vehicle/<id>` route is the only `/api/*` endpoint reachable here — the
+regex bounds it to numeric IDs, and every *other* `/api` route requires kiosk
+auth (stripped on this host) so it would `401` even if the allowlist were
+widened. That location deliberately sets **no** `proxy_set_header` of its own,
+so it inherits the server-level headers (the `Authorization ""` and
 `X-Auth-Proxy-Username "Anonymous"` clobbers) — adding even one header there
 would silently disable that inheritance.
 
-> **Note:** `/api/vehicle/<id>` has no auth decorator in the app, so it is
-> reachable unauthenticated on the main site too, and it returns officer names,
-> shift assignments, and recent checkout history. Confirm that exposure is
-> acceptable for the anonymous display, or add a trimmed-payload mode.
+**3. Kiosk site — `pd-checkout-kiosk.cityoffargo.com`** (internal-only kiosk API)
+
+A dedicated endpoint for the headless kiosks, so their Basic-Auth API traffic
+does not have to ride on the internet-facing site. The **whole block is gated on
+the internal allowlist** (`include internal-only.conf`). `location /api/` proxies
+to the app with the `Authorization` header **preserved** (kiosks need it for
+Basic Auth) and `X-Auth-Proxy-Username` clobbered; everything else returns `403`.
+**This is the hostname every kiosk's `SERVER_URL` must point at** —
+`https://pd-checkout-kiosk.cityoffargo.com`, no port. Requires an internal DNS
+record for the hostname and a cert covering it (reuses the cityoffargo cert).
+
+`location /` returning `403` here is **correct, not a misconfiguration**. The
+kiosk is `kiosk_gui.py`, a native tkinter application: every one of its server
+calls is a `requests` call to `/api/*`, and it renders its own UI locally. It
+never fetches a page, a stylesheet, or a WebSocket, so this host deliberately
+serves no HTML at all.
+
+> **Note on `/api/vehicle` PII:** the route has no auth decorator in the app —
+> it returns officer names, shift assignments, and recent checkout history.
+> Exposure is contained at the proxy: internal-only on the main site (dedicated
+> IP-restricted location, pending the move behind Okta above) and on the display
+> site (whole block IP-gated).
+>
+> **Basic Auth cannot be added to this route**, and the attempt in `3584713` was
+> reverted in `9d017e5` for this reason. Its only caller is browser JavaScript in
+> the dashboard's vehicle-detail modal, on the two hosts that cannot present
+> credentials: the main site's staff browsers have no `KIOSK_USER`/`KIOSK_PASS`,
+> and the display site strips `Authorization` by design. The kiosk never requests
+> this route. Adding `@require_kiosk_auth` `401`s the modal on both hosts.
+>
+> Locking it down further therefore needs a mechanism *both* browser consumers can
+> satisfy — e.g. accepting a present `X-Auth-Proxy-Username` (including the
+> display's `"Anonymous"`), or a trimmed-payload response for the display host
+> that omits the officer names and history — not HTTP Basic Auth.
 
 ## Environment Variables
 
@@ -350,7 +429,9 @@ OKTA_HEADER=X-Auth-Proxy-Username          # Header containing authenticated use
 SECRET_KEY=          # Flask session secret (generate random)
 DEBUG=False                                 # Disable debug mode
 ALLOW_UNSAFE_WERKZEUG=False                # Use proper WSGI server (gunicorn/uwsgi)
-CORS_ORIGINS=https://checkout.domain.com   # Allowed CORS origins
+CORS_ORIGINS=https://pd-checkout.cityoffargo.com,https://pd-checkout-display.cityoffargo.com
+                                            # Allowed CORS origins (browser hosts only;
+                                            # the kiosk is not a browser and needs none)
 ```
 
 **Development/Emergency:**
@@ -365,11 +446,29 @@ ALLOW_UNSAFE_WERKZEUG=True                 # Allow Werkzeug dev server
 
 **Required:**
 ```bash
-SERVER_URL=https://checkout.domain.com     # Server URL (HTTPS in production)
+SERVER_URL=https://pd-checkout-kiosk.cityoffargo.com   # Kiosk host — see below
 KIOSK_USER=kiosk                           # Must match server KIOSK_USER
 KIOSK_PASS=               # Must match server KIOSK_PASS
+```
 
 **Set in launcher scripts** (`Start_Kiosk.bat` or `start_kiosk.sh`)
+
+### Production hostnames
+
+Three hostnames serve this system, each with one auth model. Point each client
+at the right one — they are not interchangeable:
+
+| Client | Hostname | Auth |
+| --- | --- | --- |
+| Staff browsers | `https://pd-checkout.cityoffargo.com` | Okta |
+| Wall display (Chrome kiosk mode) | `https://pd-checkout-display.cityoffargo.com` | None; anonymous read-only, internal-only |
+| Kiosk laptops (`SERVER_URL`) | `https://pd-checkout-kiosk.cityoffargo.com` | HTTP Basic Auth, internal-only |
+
+No port suffix — nginx terminates TLS on 443 and redirects 80 → 443. Port 5000
+is the container port and is not reachable from any client. The display and
+kiosk hosts are gated on the internal-network allowlist, so they resolve and
+respond only from inside the network. Full details in **Production Reverse
+Proxy** above.
 
 ### Kiosk Installation
 
@@ -463,7 +562,7 @@ The system supports multiple kiosk locations with automatic location tracking.
 echo Starting Downtown Kiosk...
 
 REM Set server connection details
-set SERVER_URL=http://your-server-ip:5000
+set SERVER_URL=https://pd-checkout-kiosk.cityoffargo.com
 set KIOSK_USER=kiosk
 set KIOSK_PASS=your-password
 
@@ -482,7 +581,7 @@ pause
 **Linux Example** (`start_downtown_kiosk.sh`):
 ```bash
 #!/bin/bash
-export SERVER_URL=http://your-server-ip:5000
+export SERVER_URL=https://pd-checkout-kiosk.cityoffargo.com
 export KIOSK_USER=kiosk
 export KIOSK_PASS=your-password
 
@@ -571,33 +670,72 @@ checkout-system/
 
 ## API Endpoints (Complete List)
 
-### Public (no authentication)
-- `GET /` - Main dashboard
-- `GET /api/vehicle/<id>` - Vehicle detail: make/model/year, shift assignments, and
-  recent checkout history (officer names + times). Used by the dashboard's
-  vehicle-detail modal. **Unauthenticated** — reachable on both the main and
-  display sites; see the PII note under Production Reverse Proxy.
+Methods below are what the route actually accepts in `app.py`. "No app-level
+auth" means the *app* does not check credentials — in production those routes
+are protected by the reverse proxy instead (Okta or the internal-IP allowlist),
+so they are not open to the public. See **Production Reverse Proxy**.
+
+### No app-level auth (protected at the proxy)
+- `GET /` - Main dashboard. Behind Okta on the main site; served anonymously on
+  the internal-only display site.
+- `GET /api/vehicle/<id>` - Vehicle detail: make/model/year, shift assignments,
+  and recent checkout history (officer names + times). Used by the dashboard's
+  vehicle-detail modal on both browser hosts. Internal-only at the proxy in both
+  places; see the PII note under Production Reverse Proxy for why Basic Auth
+  cannot be added here.
 
 ### Admin (OKTA header or password auth)
+Every route in this section checks `session['admin']` inside the handler and
+redirects to the login page when unset; there is no shared decorator.
+
 - `GET /admin` - Admin dashboard (tabbed interface)
-- `GET /admin/login` - Password login (only if ADMIN_PASSWORD set and not in OKTA mode)
+- `GET|POST /admin/login` - Password login (only registered if ADMIN_PASSWORD set and not in OKTA mode)
 - `GET /admin/logout` - Logout
-- `GET /admin/manage_admins` - Admin user management
-- `POST /admin/user/add` - Add user
-- `POST /admin/fob/add` - Add equipment
-- `POST /admin/user/deactivate/<id>` - Deactivate user
-- `POST /admin/user/activate/<id>` - Activate user
-- `POST /admin/fob/deactivate/<id>` - Deactivate equipment
-- `POST /admin/fob/activate/<id>` - Activate equipment
-- `GET /admin/export/history` - Export checkout history CSV
-- `POST /admin/fob/reserve/<id>` - Create reservation
-- `GET /admin/fob/barcode/<id>` - Generate barcode
-- `POST /admin/fob/note/add/<id>` - Add note
-- `POST /admin/fob/note/edit/<id>` - Edit note and expiration
-- `GET /admin/fob/note/expire/<id>` - Expire note immediately
-- `GET /admin/fob/note/delete/<id>` - Delete note
+- `GET /admin/admins` - Admin user management
 - `POST /admin/admins/add` - Add admin user
 - `POST /admin/admins/delete/<id>` - Remove admin user
+
+**Users:**
+- `POST /admin/user/add` - Add user
+- `GET|POST /admin/user/edit/<id>` - Edit user
+- `GET|POST /admin/user/replace/<id>` - Replace user (transfer card and history)
+- `GET /admin/user/deactivate/<id>` - Deactivate user
+- `GET /admin/user/activate/<id>` - Activate user
+
+**Equipment:**
+- `POST /admin/fob/add` - Add equipment
+- `GET|POST /admin/fob/edit/<id>` - Edit equipment
+- `GET|POST /admin/fob/replace/<id>` - Replace lost or broken fob
+- `GET /admin/fob/deactivate/<id>` - Deactivate equipment
+- `GET /admin/fob/activate/<id>` - Activate equipment
+- `GET|POST /admin/fob/mark_unavailable/<id>` - Mark equipment unavailable
+- `GET /admin/fob/mark_available/<id>` - Return equipment to service
+- `GET /admin/fob/barns_transfer/<id>` - Transfer vehicle to The Barns
+- `GET /admin/fob/barcode/<id>` - Generate barcode
+- `POST /admin/fob/assignment/add/<fob_id>` - Add shift assignment
+- `GET /admin/fob/assignment/delete/<assignment_id>/<fob_id>` - Remove shift assignment
+
+**Reservations:**
+- `GET|POST /admin/fob/reserve/<id>` - Create reservation for one item
+- `GET|POST /admin/reservation/new` - Create reservation
+- `GET|POST /admin/reservation/bulk` - Bulk reservation entry
+- `GET|POST /admin/reservation/edit/<id>` - Edit reservation
+- `GET /admin/reservation/delete/<id>` - Delete reservation
+
+**Notes:**
+- `GET|POST /admin/fob/note/add/<id>` - Add note
+- `GET|POST /admin/fob/note/edit/<id>` - Edit note and expiration
+- `GET /admin/fob/note/expire/<id>` - Expire note immediately
+- `GET /admin/fob/note/delete/<id>` - Delete note
+
+**Reporting:**
+- `GET /admin/export/history` - Export checkout history CSV
+
+> **Note:** several state-changing admin actions above are reachable by `GET`
+> (deactivate, activate, delete, expire, barns_transfer) because they are
+> triggered by links in the admin templates rather than forms. Converting them
+> to `POST` would close a cross-site request-forgery path, since an
+> authenticated admin merely loading a crafted URL performs the action.
 
 ### Kiosk API (HTTP Basic Auth)
 **User/Equipment Registration:**
@@ -623,6 +761,11 @@ checkout-system/
   - Auto-creates "The Barns" user if needed
 - `POST /api/user/replace_card` - Replace user's keycard
   - Body: `{user_id, new_card_id}`
+- `POST /api/mark_unavailable` - Take equipment out of service
+  - Body: `{fob_id, user_id (optional), reason (optional)}`
+  - A non-empty `reason` replaces any existing note with `UNAVAILABLE: <reason>`
+- `POST /api/mark_available` - Return equipment to service
+  - Body: `{fob_id, user_id (optional)}`
 
 **Notes:**
 - `POST /api/note/add` - Add or replace note

@@ -418,7 +418,7 @@ body {
 <div class="tab-content active" id="Squad Cars-content">
     <div class="grid">
         {% for key in squad_cars %}
-        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
                 <div class="status checked-out">
@@ -472,7 +472,7 @@ body {
 <div class="tab-content" id="Specialized Services Vehicles-content">
     <div class="grid">
         {% for key in specialized_vehicles %}
-        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
                 <div class="status checked-out">
@@ -526,7 +526,7 @@ body {
 <div class="tab-content" id="CID Vehicles-content">
     <div class="grid">
         {% for key in cid_vehicles %}
-        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
                 <div class="status checked-out">
@@ -576,7 +576,7 @@ body {
 <div class="tab-content" id="Other Vehicles-content">
     <div class="grid">
         {% for key in other_vehicles %}
-        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
                 <div class="status checked-out">
@@ -631,7 +631,7 @@ body {
 <div class="tab-content" id="Pool Cars-content">
     <div class="grid">
         {% for key in pool_cars %}
-        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
                 <div class="status checked-out">
@@ -685,7 +685,7 @@ body {
 <div class="tab-content" id="Admin Cars-content">
     <div class="grid">
         {% for key in admin_cars %}
-        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
                 <div class="status checked-out">
@@ -739,7 +739,7 @@ body {
 <div class="tab-content" id="Equipment-content">
     <div class="grid">
         {% for key in equipment %}
-        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
                 <div class="status checked-out">
@@ -793,7 +793,7 @@ body {
 <div class="tab-content" id="Key Rings-content">
     <div class="grid">
         {% for key in key_rings %}
-        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;">
             <div class="vehicle-name">{{ key.vehicle_name }}</div>
             {% if key.checkout_id %}
                 <div class="status checked-out">
@@ -947,7 +947,10 @@ body {
                             ${key.reservation.reason || ''}
                         </small>
                     </div>` : '';
-                return `<div class="key-card ${cardClass}"><div class="vehicle-name">${key.vehicle_name}</div>${statusHtml}${reservationHtml}${noteHtml}</div>`;
+                // Include data-fob-id and cursor styling so the delegated click handler
+                // (see the document click listener below) still works after this re-render.
+                // Without data-fob-id the click fires but resolves to a null id and is ignored.
+                return `<div class="key-card ${cardClass}" data-fob-id="${key.id}" style="cursor:pointer;"><div class="vehicle-name">${key.vehicle_name}</div>${statusHtml}${reservationHtml}${noteHtml}</div>`;
             }).join('');
         }
         

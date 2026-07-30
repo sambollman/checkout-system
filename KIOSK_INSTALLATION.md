@@ -99,25 +99,28 @@ Wait for all packages to install (2-3 minutes).
 notepad Start_Kiosk.bat
 ```
 
-**Find these lines and update:**
+**Find these lines:**
 ```batch
-set SERVER_URL=http://localhost:5000
+set SERVER_URL=https://pd-checkout-kiosk.cityoffargo.com
 set KIOSK_USER=kiosk
 set KIOSK_PASS=change-this-in-production
 ```
 
-**Change to IT's values:**
+`SERVER_URL` and `KIOSK_USER` are already correct for production — leave them
+alone. `SERVER_URL` must stay on the kiosk hostname; the public staff URL and
+the display URL will not work, because only the kiosk host passes through the
+Authorization header this application needs.
+
+**Change only the password to IT's value:**
 ```batch
-set SERVER_URL=<PASTE_SERVER_URL_HERE>
-set KIOSK_USER=<PASTE_USERNAME_HERE>
 set KIOSK_PASS=<PASTE_PASSWORD_HERE>
 ```
 
 **Save:** File → Save  
 **Close:** File → Exit
 
-- [ ] Server URL configured
-- [ ] Username configured
+- [ ] Server URL left on the kiosk hostname
+- [ ] Username left as `kiosk`
 - [ ] Password configured
 
 ---
@@ -241,15 +244,20 @@ Scan keycard → should show employee greeting
 ### "Cannot connect to server"
 **Possible causes:**
 - Server not deployed yet (offline mode is OK)
-- Wrong SERVER_URL in Start_Kiosk.bat
+- Wrong SERVER_URL in Start_Kiosk.bat — it must be
+  `https://pd-checkout-kiosk.cityoffargo.com`
+- Kiosk is not on the internal network (that hostname is internal-only)
 - Firewall blocking connection
 - Wrong username/password
 
 **Check:**
 ```cmd
-curl http://YOUR-SERVER-URL/api/status -u username:password
+curl https://pd-checkout-kiosk.cityoffargo.com/api/status -u kiosk:PASSWORD
 ```
-Should return JSON data if working.
+Should return JSON data if working. A `401` means the password is wrong; a
+connection failure or timeout usually means the machine is off the internal
+network. A `403` means you used the wrong hostname — the staff and display
+hosts do not serve the kiosk API.
 
 ### Kiosk window too small/large
 **Solution:** The GUI auto-sizes, but you can:

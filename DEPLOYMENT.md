@@ -127,7 +127,7 @@ REM Checkout System Kiosk Launcher for Windows
 REM Set environment variables - UPDATE THESE FOR PRODUCTION
 set KIOSK_USER=production_kiosk
 set KIOSK_PASS=YourSecurePassword123!
-set SERVER_URL=https://checkout.company.local:5000
+set SERVER_URL=https://pd-checkout-kiosk.cityoffargo.com
 
 REM Navigate to kiosk directory
 cd /d "%~dp0"
@@ -141,7 +141,10 @@ pause
 
 **Update these values:**
 - `KIOSK_PASS` → Same password as server
-- `SERVER_URL` → Your production server URL
+- `SERVER_URL` → The dedicated kiosk hostname
+  (`https://pd-checkout-kiosk.cityoffargo.com`), **not** the public staff URL.
+  It is internal-only and is the one host that preserves the `Authorization`
+  header the kiosk needs for Basic Auth. No port suffix.
 
 ### 3.5 Test Kiosk
 
@@ -164,7 +167,7 @@ Download and install Google Chrome.
 Create `C:\LaunchDashboard.bat`:
 ```batch
 @echo off
-start chrome.exe --kiosk --app=https://checkout.company.local:5000
+start chrome.exe --kiosk --app=https://pd-checkout-display.cityoffargo.com
 ```
 
 ### 4.3 Auto-Start on Boot
@@ -211,7 +214,8 @@ Dashboard should auto-launch fullscreen on boot.
 **Check:**
 1. `SERVER_URL` is correct in `Start_Kiosk.bat`
 2. `KIOSK_USER` and `KIOSK_PASS` match server configuration
-3. Network connectivity: `ping checkout.company.local`
+3. Network connectivity: `ping pd-checkout-kiosk.cityoffargo.com` (the kiosk
+   host is internal-only, so this fails from outside the network)
 4. Server is running: `docker ps`
 
 ### RFID/Barcode Not Working
