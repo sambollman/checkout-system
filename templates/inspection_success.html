@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Inspection Submitted</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+            max-width: 600px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .success-container {
+            background: white;
+            padding: 40px 25px;
+            border-radius: 8px;
+            margin: 40px 0;
+        }
+        .checkmark { font-size: 80px; }
+        h1 { color: #4CAF50; }
+        p { color: #555; font-size: 18px; }
+        .back-btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 12px 25px;
+            background: #2196F3;
+            color: white;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="success-container">
+        <div class="checkmark">✅</div>
+        <h1>Inspection Submitted!</h1>
+        <p><strong>{{ vehicle_name }}</strong> inspection has been recorded.</p>
+        <p>Thank you!</p>
+    </div>
+</body>
+</html>

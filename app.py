@@ -1222,6 +1222,49 @@ def admin_logout():
     session.pop('admin', None)
     return redirect(url_for('index'))
 
+@app.route('/inspect/<int:fob_id>', methods=['GET', 'POST'])
+def inspect_vehicle(fob_id):
+    """Vehicle inspection form - requires OKTA auth"""
+    username = get_authenticated_user()
+    if not username:
+        if not session.get('admin'):
+            return redirect('/admin/login')
+        username = session.get('username', 'Admin')
+
+    conn = get_db()
+    fob = conn.execute('SELECT * FROM key_fobs WHERE id = ?', (fob_id,)).fetchone()
+    
+    if not fob:
+        conn.close()
+        return "Vehicle not found", 404
+
+    if request.method == 'POST':
+        chicago_tz = pytz.timezone('America/Chicago')
+        mileage = request.form.get('mileage')
+        fuel_level = request.form.get('fuel_level')
+        exterior_damage = 1 if request.form.get('exterior_damage') else 0
+        exterior_damage_notes = request.form.get('exterior_damage_notes')
+        radio_present = 1 if request.form.get('radio_present') else 0
+        laptop_present = 1 if request.form.get('laptop_present') else 0
+        lights_working = 1 if request.form.get('lights_working') else 0
+        overall_status = request.form.get('overall_status')
+        notes = request.form.get('notes')
+
+        conn.execute('''
+            INSERT INTO inspections (fob_id, inspector, inspected_at, mileage, fuel_level,
+                exterior_damage, exterior_damage_notes, radio_present, laptop_present,
+                lights_working, overall_status, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (fob_id, username, datetime.now(chicago_tz).isoformat(),
+               mileage, fuel_level, exterior_damage, exterior_damage_notes,
+               radio_present, laptop_present, lights_working, overall_status, notes))
+        conn.commit()
+        conn.close()
+        return render_template('inspection_success.html', vehicle_name=fob['vehicle_name'])
+
+    conn.close()
+    return render_template('inspection_form.html', fob=fob, inspector=username)
+
 @app.route('/admin')
 def admin_dashboard():
     """Admin dashboard - Okta or password protected"""
@@ -1648,6 +1691,131 @@ def admin_barns_transfer(fob_id):
     except Exception as e:
         conn.close()
         return f"Error: {str(e)}", 500
+
+@app.route('/admin/api/inspections')
+def api_inspections():
+    """Get inspections as JSON for admin panel"""
+    if not session.get('admin'):
+        return {'error': 'Unauthorized'}, 401
+    
+    conn = get_db()
+    chicago_tz = pytz.timezone('America/Chicago')
+    
+    fob_id = request.args.get('fob_id')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    query = '''
+        SELECT i.*, kf.vehicle_name
+        FROM inspections i
+        JOIN key_fobs kf ON i.fob_id = kf.id
+        WHERE 1=1
+    '''
+    params = []
+    
+    if fob_id:
+        query += ' AND i.fob_id = ?'
+        params.append(fob_id)
+    if start_date:
+        query += ' AND date(i.inspected_at) >= ?'
+        params.append(start_date)
+    if end_date:
+        query += ' AND date(i.inspected_at) <= ?'
+        params.append(end_date)
+    
+    query += ' ORDER BY i.inspected_at DESC LIMIT 200'
+    
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    
+    result = []
+    for row in rows:
+        r = dict(row)
+        if r['inspected_at']:
+            try:
+                dt = datetime.fromisoformat(r['inspected_at'])
+                if dt.tzinfo is not None:
+                    dt = dt.astimezone(chicago_tz)
+                r['inspected_at'] = dt.strftime('%Y-%m-%d %I:%M %p')
+            except:
+                pass
+        result.append(r)
+    
+    return result
+
+@app.route('/admin/export/inspections')
+def export_inspections():
+    """Export inspections as CSV"""
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    
+    conn = get_db()
+    chicago_tz = pytz.timezone('America/Chicago')
+    
+    fob_id = request.args.get('fob_id')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    query = '''
+        SELECT i.*, kf.vehicle_name
+        FROM inspections i
+        JOIN key_fobs kf ON i.fob_id = kf.id
+        WHERE 1=1
+    '''
+    params = []
+    
+    if fob_id:
+        query += ' AND i.fob_id = ?'
+        params.append(fob_id)
+    if start_date:
+        query += ' AND date(i.inspected_at) >= ?'
+        params.append(start_date)
+    if end_date:
+        query += ' AND date(i.inspected_at) <= ?'
+        params.append(end_date)
+    
+    query += ' ORDER BY i.inspected_at DESC'
+    
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    
+    import csv
+    from io import StringIO
+    
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Date', 'Vehicle', 'Inspector', 'Mileage', 'Fuel Level',
+                     'Exterior Damage', 'Damage Notes', 'Radio Present',
+                     'Laptop Present', 'Lights Working', 'Overall Status', 'Notes'])
+    
+    for row in rows:
+        r = dict(row)
+        if r['inspected_at']:
+            try:
+                dt = datetime.fromisoformat(r['inspected_at'])
+                if dt.tzinfo is not None:
+                    dt = dt.astimezone(chicago_tz)
+                r['inspected_at'] = dt.strftime('%Y-%m-%d %I:%M %p')
+            except:
+                pass
+        writer.writerow([
+            r['inspected_at'], r['vehicle_name'], r['inspector'],
+            r['mileage'], r['fuel_level'],
+            'Yes' if r['exterior_damage'] else 'No',
+            r['exterior_damage_notes'] or '',
+            'Yes' if r['radio_present'] else 'No',
+            'Yes' if r['laptop_present'] else 'No',
+            'Yes' if r['lights_working'] else 'No',
+            r['overall_status'], r['notes'] or ''
+        ])
+    
+    output.seek(0)
+    from flask import Response
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment; filename=inspections.csv'}
+    )
 
 @app.route('/admin/export/history')
 def export_history():
@@ -2289,6 +2457,70 @@ def generate_barcode(fob_id):
         mimetype='image/png',
         as_attachment=True,
         download_name=f'{fob["vehicle_name"]}_qrcode.png'
+    )
+
+@app.route('/admin/fob/inspection_qr/<int:fob_id>')
+def generate_inspection_qr(fob_id):
+    """Generate QR code that links to the inspection form"""
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+   
+    import qrcode
+    from io import BytesIO
+    from PIL import Image, ImageDraw, ImageFont
+   
+    conn = get_db()
+    fob = conn.execute('SELECT * FROM key_fobs WHERE id = ?', (fob_id,)).fetchone()
+    conn.close()
+   
+    if not fob:
+        return "Fob not found", 404
+   
+    # Generate QR code with inspection URL
+    inspection_url = f"https://pd-checkout.cityoffargo.com/inspect/{fob_id}"
+    
+    qr = qrcode.QRCode(version=1, box_size=3, border=1)
+    qr.add_data(inspection_url)
+    qr.make(fit=True)
+    
+    qr_img = qr.make_image(fill_color="black", back_color="white")
+    qr_width, qr_height = qr_img.size
+    
+    if qr_img.mode != 'RGB':
+        qr_img = qr_img.convert('RGB')
+    
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
+    except:
+        font = ImageFont.load_default()
+    
+    text = f"{fob['vehicle_name']} - Inspection"
+    temp_img = Image.new('RGB', (1, 1))
+    temp_draw = ImageDraw.Draw(temp_img)
+    bbox = temp_draw.textbbox((0, 0), text, font=font)
+    text_width = bbox[2] - bbox[0]
+    
+    text_height = 25
+    final_width = max(qr_width, text_width + 10)
+    final_img = Image.new('RGB', (final_width, qr_height + text_height), 'white')
+    
+    qr_x = (final_width - qr_width) // 2
+    final_img.paste(qr_img, (qr_x, 0))
+    
+    draw = ImageDraw.Draw(final_img)
+    text_x = (final_width - text_width) // 2
+    text_y = qr_height + 5
+    draw.text((text_x, text_y), text, fill='black', font=font)
+   
+    buffer = BytesIO()
+    final_img.save(buffer, format='PNG')
+    buffer.seek(0)
+   
+    return send_file(
+        buffer,
+        mimetype='image/png',
+        as_attachment=True,
+        download_name=f'{fob["vehicle_name"]}_inspection_qr.png'
     )
 
 @app.route('/admin/fob/note/add/<int:fob_id>', methods=['GET', 'POST'])

@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Key Checkout System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">   
+    <style>
+body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .checkout-name {
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        body.dark-mode {
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        body.dark-mode h1,
+        body.dark-mode h2 {
+            color: #ffffff;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        }
+        .table-container {
+            margin-top: 20px;
+            overflow-x: auto;
+            display: none;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            table-layout: fixed;
+        }
+        body.dark-mode table {
+            background: #2d2d2d;
+        }
+        th {
+            background-color: #f5f5f5;
+            padding: 15px;
+            text-align: left;
+            font-weight: bold;
+            border-bottom: 2px solid #ddd;
+        }
+        th:nth-child(1) { width: 20%; }
+        th:nth-child(2) { width: 25%; }
+        th:nth-child(3) { width: 30%; }
+        th:nth-child(4) { width: 25%; }
+        body.dark-mode th {
+            background-color: #1a1a1a;
+            border-bottom: 2px solid #444;
+        }
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        body.dark-mode td {
+            border-bottom: 1px solid #444;
+        }
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+        body.dark-mode tr:hover {
+            background-color: #3a3a3a;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        .status-available {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status-checked-out {
+            background-color: #f44336;
+            color: white;
+        }
+        .view-toggle {
+            position: fixed;
+            top: 20px;
+            right: 200px;
+            z-index: 1000;
+        }
+        .view-toggle-label {
+            margin-right: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        body.dark-mode .view-toggle-label {
+            color: #bbb;
+        }
+        .key-card {
+            background: white;
+            padding: 5px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        body.dark-mode .key-card {
+            background: #2d2d2d;
+            color: #ffffff;
+            box-shadow: 0 2px 4px rgba(255,255,255,0.1);
+        }
+        .key-card.available {
+            border-left: 5px solid #4CAF50;
+        }
+        .key-card.checked-out {
+            border-left: 5px solid #f44336;
+        }
+        .key-card.unavailable {
+            border-left: 5px solid #9E9E9E;
+            opacity: 0.8;
+        }
+        .vehicle-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .status {
+            font-size: 0.9em;
+            color: #666;
+        }
+        body.dark-mode .status {
+            color: #bbb;
+        }
+        .status.available {
+            color: #4CAF50;
+        }
+        .status.checked-out {
+            color: #f44336;
+        }
+        .status.unavailable {
+            color: #9E9E9E;
+        }
+        .admin-link {
+            float: right;
+            color: #666;
+            text-decoration: none;
+        }
+        body.dark-mode .admin-link {
+            color: #bbb;
+        }
+        .dark-mode-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #4CAF50;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .toggle-label {
+            margin-right: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        body.dark-mode .toggle-label {
+            color: #bbb;
+        }
+        .section-header {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            margin-top: 30px;
+        }
+        .section-header:hover {
+            opacity: 0.8;
+        }
+        .collapse-icon {
+            margin-left: 10px;
+            font-size: 0.7em;
+            transition: transform 0.3s;
+        }
+        .collapse-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+        .collapsible-content {
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+            overflow: hidden;
+        }
+        .collapsible-content.collapsed {
+            max-height: 0 !important;
+            opacity: 0;
+        }
+        /* Tab Styles */
+
+        .tab-container {
+
+            display: flex;
+
+            gap: 10px;
+
+            margin: 20px 0;
+
+            border-bottom: 2px solid #ddd;
+
+        }
+
+       
+
+        body.dark-mode .tab-container {
+
+            border-bottom: 2px solid #444;
+
+        }
+
+       
+
+        .tab {
+
+            padding: 15px 30px;
+
+            cursor: pointer;
+
+            background: transparent;
+
+            border: none;
+
+            border-bottom: 3px solid transparent;
+
+            font-size: 1.1em;
+
+            font-weight: bold;
+
+            color: #666;
+
+            transition: all 0.3s;
+
+        }
+
+       
+
+        body.dark-mode .tab {
+
+            color: #bbb;
+
+        }
+
+       
+
+        .tab:hover {
+
+            color: #333;
+
+            border-bottom-color: #ccc;
+
+        }
+
+       
+
+        body.dark-mode .tab:hover {
+
+            color: #fff;
+
+            border-bottom-color: #666;
+
+        }
+
+       
+
+        .tab.active {
+
+            color: #4CAF50;
+
+            border-bottom-color: #4CAF50;
+
+        }
+
+       
+
+        .tab-content {
+
+            display: none;
+
+        }
+
+       
+
+        .tab-content.active {
+
+            display: block;
+
+        }
+/* Mobile responsive */
+        @media (max-width: 768px) {
+            body {
+                margin: 10px;
+            }
+            
+            h1 {
+                font-size: 1.5em;
+            }
+            
+            .grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .dark-mode-toggle,
+            .view-toggle {
+                position: static;
+                float: right;
+                margin: 10px 0;
+            }
+            
+            table {
+                font-size: 0.85em;
+            }
+            
+            th, td {
+                padding: 8px 4px;
+            }
+            
+            .admin-link {
+                display: block;
+                float: none;
+                margin: 10px 0;
+            }
+        }
+
+
+    </style>
+</head>
+<body>
+    <div class="dark-mode-toggle">
+        <span class="toggle-label">🌙 Night Mode</span>
+        <label class="toggle-switch">
+            <input type="checkbox" id="darkModeToggle">
+            <span class="slider"></span>
+        </label>
+    </div>
+    <h1>Vehicle & Equipment Checkout System</h1>
+    <a href="{% if okta_mode %}/admin{% else %}/admin/login{% endif %}" class="admin-link">Admin</a>
+
+     
+    <div class="tab-container">
+        <button class="tab active" data-category="Squad Cars">🚓 Squad Cars</button>
+        <button class="tab" data-category="CID Vehicles">🚔 CID Vehicles</button>
+        <button class="tab" data-category="Specialized Services Vehicles">🚙 Specialized Services Vehicles</button>
+        <button class="tab" data-category="Other Vehicles">🚗 Other Vehicles</button>
+        <button class="tab" data-category="Pool Cars">🚙 Pool Cars</button>
+        <button class="tab" data-category="Admin Cars">🚘 Admin Cars</button>
+        <button class="tab" data-category="Equipment">🔧 Equipment</button>
+        <button class="tab" data-category="Key Rings">🔑 Key Rings</button>
+    </div>
+
+    <!-- Squad Cars Tab -->
+<div class="tab-content active" id="Squad Cars-content">
+    <div class="grid">
+        {% for key in squad_cars %}
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
+            <div class="vehicle-name">{{ key.vehicle_name }}</div>
+            {% if key.checkout_id %}
+                <div class="status checked-out">
+                    <strong>Checked out to:</strong><br>
+                    <span class="checkout-name">{{ key.first_name }} {{ key.last_name }}</span><br>
+                    <small>Since {{ key.checked_out_at }}</small>
+                </div>
+            {% elif key.is_available == 0 %}
+                <div class="status unavailable">
+                    🚫 Unavailable
+                </div>
+            {% else %}
+                <div class="status available">
+                    ✓ Available
+                </div>
+            {% endif %}
+            {% if key.reservation %}
+                <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    📅 Reserved<br>
+                    <small>
+                        {% if key.reservation.first_name %}
+                            For: {{ key.reservation.first_name }} {{ key.reservation.last_name }}<br>
+                        {% elif key.reservation.reserved_for_name %}
+                            For: {{ key.reservation.reserved_for_name }}<br>
+                        {% endif %}
+                        From: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.end_datetime %}Until: {{ key.reservation.end_datetime }}<br>{% endif %}
+                        {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
+                    </small>
+                </div>
+            {% endif %}
+            {% if key.note %}
+                {% if key.note.note_text.startswith('UNAVAILABLE:') %}
+                    <div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        🚫 {{ key.note.note_text[12:].strip() }}
+                        {% if key.note.created_by %}<br><small>By: {{ key.note.created_by }}</small>{% endif %}
+                    </div>
+                {% else %}
+                    <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        ⚠️ Note: {{ key.note.note_text }}<br>
+                        {% if key.note.created_by %}<small>By: {{ key.note.created_by }}</small>{% endif %}
+                    </div>
+                {% endif %}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Specialized Services Vehicles Tab -->
+<div class="tab-content" id="Specialized Services Vehicles-content">
+    <div class="grid">
+        {% for key in specialized_vehicles %}
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
+            <div class="vehicle-name">{{ key.vehicle_name }}</div>
+            {% if key.checkout_id %}
+                <div class="status checked-out">
+                    <strong>Checked out to:</strong><br>
+                    <span class="checkout-name">{{ key.first_name }} {{ key.last_name }}</span><br>
+                    <small>Since {{ key.checked_out_at }}</small>
+                </div>
+            {% elif key.is_available == 0 %}
+                <div class="status unavailable">
+                    🚫 Unavailable
+                </div>
+            {% else %}
+                <div class="status available">
+                    ✓ Available
+                </div>
+            {% endif %}
+            {% if key.reservation %}
+                <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    📅 Reserved<br>
+                    <small>
+                        {% if key.reservation.first_name %}
+                            For: {{ key.reservation.first_name }} {{ key.reservation.last_name }}<br>
+                        {% elif key.reservation.reserved_for_name %}
+                            For: {{ key.reservation.reserved_for_name }}<br>
+                        {% endif %}
+                        From: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.end_datetime %}Until: {{ key.reservation.end_datetime }}<br>{% endif %}
+                        {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
+                    </small>
+                </div>
+            {% endif %}
+            {% if key.note %}
+                {% if key.note.note_text.startswith('UNAVAILABLE:') %}
+                    <div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        🚫 {{ key.note.note_text[12:].strip() }}
+                        {% if key.note.created_by %}<br><small>By: {{ key.note.created_by }}</small>{% endif %}
+                    </div>
+                {% else %}
+                    <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        ⚠️ Note: {{ key.note.note_text }}<br>
+                        {% if key.note.created_by %}<small>By: {{ key.note.created_by }}</small>{% endif %}
+                    </div>
+                {% endif %}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- CID Vehicles Tab -->
+<div class="tab-content" id="CID Vehicles-content">
+    <div class="grid">
+        {% for key in cid_vehicles %}
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
+            <div class="vehicle-name">{{ key.vehicle_name }}</div>
+            {% if key.checkout_id %}
+                <div class="status checked-out">
+                    <strong>Checked out to:</strong><br>
+                    <span class=""checkout-name">{{ key.first_name }} {{ key.last_name }}</span><br>
+                    <small>Since {{ key.checked_out_at }}</small>
+                </div>
+            {% else %}
+                <div class="status available">
+                    ✓ Available
+                </div>
+            {% endif %}
+            {% if key.reservation %}
+                <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    📅 Reserved<br>
+                    <small>
+                        {% if key.reservation.first_name %}
+                            For: {{ key.reservation.first_name }} {{ key.reservation.last_name }}<br>
+                        {% elif key.reservation.reserved_for_name %}
+                            For: {{ key.reservation.reserved_for_name }}<br>
+                        {% endif %}
+                        From: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.end_datetime %}Until: {{ key.reservation.end_datetime }}<br>{% endif %}
+                        {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
+                    </small>
+                </div>
+            {% endif %}
+            {% if key.note %}
+                {% if key.note.note_text.startswith('UNAVAILABLE:') %}
+                    <div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        🚫 {{ key.note.note_text[12:].strip() }}
+                        {% if key.note.created_by %}<br><small>By: {{ key.note.created_by }}</small>{% endif %}
+                    </div>
+                {% else %}
+                    <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        ⚠️ Note: {{ key.note.note_text }}<br>
+                        {% if key.note.created_by %}<small>By: {{ key.note.created_by }}</small>{% endif %}
+                    </div>
+                {% endif %}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Other Vehicles Tab -->
+<div class="tab-content" id="Other Vehicles-content">
+    <div class="grid">
+        {% for key in other_vehicles %}
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
+            <div class="vehicle-name">{{ key.vehicle_name }}</div>
+            {% if key.checkout_id %}
+                <div class="status checked-out">
+                    <strong>Checked out to:</strong><br>
+                    <span class="checkout-name">{{ key.first_name }} {{ key.last_name }}</span><br>
+                    <small>Since {{ key.checked_out_at }}</small>
+                </div>
+            {% elif key.is_available == 0 %}
+                <div class="status unavailable">
+                    🚫 Unavailable
+                </div>
+            {% else %}
+                <div class="status available">
+                    ✓ Available
+                </div>
+            {% endif %}
+            {% if key.reservation %}
+                <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    📅 Reserved<br>
+                    <small>
+                        {% if key.reservation.first_name %}
+                            For: {{ key.reservation.first_name }} {{ key.reservation.last_name }}<br>
+                        {% elif key.reservation.reserved_for_name %}
+                            For: {{ key.reservation.reserved_for_name }}<br>
+                        {% endif %}
+                        From: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.end_datetime %}Until: {{ key.reservation.end_datetime }}<br>{% endif %}
+                        {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
+                    </small>
+                </div>
+            {% endif %}
+            {% if key.note %}
+                {% if key.note.note_text.startswith('UNAVAILABLE:') %}
+                    <div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        🚫 {{ key.note.note_text[12:].strip() }}
+                        {% if key.note.created_by %}<br><small>By: {{ key.note.created_by }}</small>{% endif %}
+                    </div>
+                {% else %}
+                    <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        ⚠️ Note: {{ key.note.note_text }}<br>
+                        {% if key.note.created_by %}<small>By: {{ key.note.created_by }}</small>{% endif %}
+                    </div>
+                {% endif %}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+
+<!-- Pool Cars Tab -->
+<div class="tab-content" id="Pool Cars-content">
+    <div class="grid">
+        {% for key in pool_cars %}
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
+            <div class="vehicle-name">{{ key.vehicle_name }}</div>
+            {% if key.checkout_id %}
+                <div class="status checked-out">
+                    <strong>Checked out to:</strong><br>
+                    <span class="checkout-name">{{ key.first_name }} {{ key.last_name }}</span><br>
+                    <small>Since {{ key.checked_out_at }}</small>
+                </div>
+            {% elif key.is_available == 0 %}
+                <div class="status unavailable">
+                    🚫 Unavailable
+                </div>
+            {% else %}
+                <div class="status available">
+                    ✓ Available
+                </div>
+            {% endif %}
+            {% if key.reservation %}
+                <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    📅 Reserved<br>
+                    <small>
+                        {% if key.reservation.first_name %}
+                            For: {{ key.reservation.first_name }} {{ key.reservation.last_name }}<br>
+                        {% elif key.reservation.reserved_for_name %}
+                            For: {{ key.reservation.reserved_for_name }}<br>
+                        {% endif %}
+                        From: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.end_datetime %}Until: {{ key.reservation.end_datetime }}<br>{% endif %}
+                        {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
+                    </small>
+                </div>
+            {% endif %}
+            {% if key.note %}
+                {% if key.note.note_text.startswith('UNAVAILABLE:') %}
+                    <div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        🚫 {{ key.note.note_text[12:].strip() }}
+                        {% if key.note.created_by %}<br><small>By: {{ key.note.created_by }}</small>{% endif %}
+                    </div>
+                {% else %}
+                    <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        ⚠️ Note: {{ key.note.note_text }}<br>
+                        {% if key.note.created_by %}<small>By: {{ key.note.created_by }}</small>{% endif %}
+                    </div>
+                {% endif %}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Admin Cars Tab -->
+<div class="tab-content" id="Admin Cars-content">
+    <div class="grid">
+        {% for key in admin_cars %}
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
+            <div class="vehicle-name">{{ key.vehicle_name }}</div>
+            {% if key.checkout_id %}
+                <div class="status checked-out">
+                    <strong>Checked out to:</strong><br>
+                    <span class="checkout-name">{{ key.first_name }} {{ key.last_name }}</span><br>
+                    <small>Since {{ key.checked_out_at }}</small>
+                </div>
+            {% elif key.is_available == 0 %}
+                <div class="status unavailable">
+                    🚫 Unavailable
+                </div>
+            {% else %}
+                <div class="status available">
+                    ✓ Available
+                </div>
+            {% endif %}
+            {% if key.reservation %}
+                <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    📅 Reserved<br>
+                    <small>
+                        {% if key.reservation.first_name %}
+                            For: {{ key.reservation.first_name }} {{ key.reservation.last_name }}<br>
+                        {% elif key.reservation.reserved_for_name %}
+                            For: {{ key.reservation.reserved_for_name }}<br>
+                        {% endif %}
+                        From: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.end_datetime %}Until: {{ key.reservation.end_datetime }}<br>{% endif %}
+                        {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
+                    </small>
+                </div>
+            {% endif %}
+            {% if key.note %}
+                {% if key.note.note_text.startswith('UNAVAILABLE:') %}
+                    <div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        🚫 {{ key.note.note_text[12:].strip() }}
+                        {% if key.note.created_by %}<br><small>By: {{ key.note.created_by }}</small>{% endif %}
+                    </div>
+                {% else %}
+                    <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        ⚠️ Note: {{ key.note.note_text }}<br>
+                        {% if key.note.created_by %}<small>By: {{ key.note.created_by }}</small>{% endif %}
+                    </div>
+                {% endif %}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Equipment Tab -->
+<div class="tab-content" id="Equipment-content">
+    <div class="grid">
+        {% for key in equipment %}
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
+            <div class="vehicle-name">{{ key.vehicle_name }}</div>
+            {% if key.checkout_id %}
+                <div class="status checked-out">
+                    <strong>Checked out to:</strong><br>
+                    <span class="checkout-name">{{ key.first_name }} {{ key.last_name }}</span><br>
+                    <small>Since {{ key.checked_out_at }}</small>
+                </div>
+            {% elif key.is_available == 0 %}
+                <div class="status unavailable">
+                    🚫 Unavailable
+                </div>
+            {% else %}
+                <div class="status available">
+                    ✓ Available
+                </div>
+            {% endif %}
+            {% if key.reservation %}
+                <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    📅 Reserved<br>
+                    <small>
+                        {% if key.reservation.first_name %}
+                            For: {{ key.reservation.first_name }} {{ key.reservation.last_name }}<br>
+                        {% elif key.reservation.reserved_for_name %}
+                            For: {{ key.reservation.reserved_for_name }}<br>
+                        {% endif %}
+                        From: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.end_datetime %}Until: {{ key.reservation.end_datetime }}<br>{% endif %}
+                        {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
+                    </small>
+                </div>
+            {% endif %}
+            {% if key.note %}
+                {% if key.note.note_text.startswith('UNAVAILABLE:') %}
+                    <div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        🚫 {{ key.note.note_text[12:].strip() }}
+                        {% if key.note.created_by %}<br><small>By: {{ key.note.created_by }}</small>{% endif %}
+                    </div>
+                {% else %}
+                    <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        ⚠️ Note: {{ key.note.note_text }}<br>
+                        {% if key.note.created_by %}<small>By: {{ key.note.created_by }}</small>{% endif %}
+                    </div>
+                {% endif %}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Key Rings Tab -->
+<div class="tab-content" id="Key Rings-content">
+    <div class="grid">
+        {% for key in key_rings %}
+        <div class="key-card {% if key.checkout_id %}checked-out{% elif key.is_available == 0 %}unavailable{% else %}available{% endif %}" data-fob-id="{{ key.id }}" style="cursor:pointer;" onclick="showVehicleDetail({{ key.id }})">
+            <div class="vehicle-name">{{ key.vehicle_name }}</div>
+            {% if key.checkout_id %}
+                <div class="status checked-out">
+                    <strong>Checked out to:</strong><br>
+                    <span class="checkout-name">{{ key.first_name }} {{ key.last_name }}</span><br>
+                    <small>Since {{ key.checked_out_at }}</small>
+                </div>
+            {% elif key.is_available == 0 %}
+                <div class="status unavailable">
+                    🚫 Unavailable
+                </div>
+            {% else %}
+                <div class="status available">
+                    ✓ Available
+                </div>
+            {% endif %}
+            {% if key.reservation %}
+                <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                    📅 Reserved<br>
+                    <small>
+                        {% if key.reservation.first_name %}
+                            For: {{ key.reservation.first_name }} {{ key.reservation.last_name }}<br>
+                        {% elif key.reservation.reserved_for_name %}
+                            For: {{ key.reservation.reserved_for_name }}<br>
+                        {% endif %}
+                        From: {{ key.reservation.reserved_datetime }}<br>
+                        {% if key.reservation.end_datetime %}Until: {{ key.reservation.end_datetime }}<br>{% endif %}
+                        {% if key.reservation.reason %}{{ key.reservation.reason }}{% endif %}
+                    </small>
+                </div>
+            {% endif %}
+            {% if key.note %}
+                {% if key.note.note_text.startswith('UNAVAILABLE:') %}
+                    <div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        🚫 {{ key.note.note_text[12:].strip() }}
+                        {% if key.note.created_by %}<br><small>By: {{ key.note.created_by }}</small>{% endif %}
+                    </div>
+                {% else %}
+                    <div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        ⚠️ Note: {{ key.note.note_text }}<br>
+                        {% if key.note.created_by %}<small>By: {{ key.note.created_by }}</small>{% endif %}
+                    </div>
+                {% endif %}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+    
+    <script>
+        // Dark mode toggle functionality
+        const toggle = document.getElementById('darkModeToggle');
+        const body = document.body;
+        
+        // Check for saved preference, default to dark mode
+        const savedMode = localStorage.getItem('darkMode');
+        if (savedMode === 'disabled') {
+            // Only turn off dark mode if explicitly disabled
+            body.classList.remove('dark-mode');
+            toggle.checked = false;
+        } else {
+            // Default to dark mode (including first visit)
+            body.classList.add('dark-mode');
+            toggle.checked = true;
+        }
+        
+        // Toggle dark mode
+        toggle.addEventListener('change', () => {
+            if (toggle.checked) {
+                body.classList.add('dark-mode');
+                localStorage.setItem('darkMode', 'enabled');
+            } else {
+                body.classList.remove('dark-mode');
+                localStorage.setItem('darkMode', 'disabled');
+            }
+        });
+    </script>
+<!-- Socket.IO for real-time updates -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+
+        // Format datetime for display
+        function formatDateTime(isoString) {
+            try {
+                const date = new Date(isoString);
+                const options = { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true };
+                return date.toLocaleString('en-US', options);
+            } catch {
+                return isoString;
+            }
+        }        
+
+
+        // Listen for update events from server
+        socket.on('status_update', function(data) {
+            console.log('Received update from server');
+            updateDisplay(data);
+        });
+        
+        // Fetch and update display
+        function updateDisplay(data) {
+            // Update each category tab
+            updateSection('Squad Cars', data.squad_cars);
+            updateSection('Specialized Services Vehicles', data.specialized_vehicles);
+            updateSection('CID Vehicles', data.cid_vehicles);
+            updateSection('Other Vehicles', data.other_vehicles);
+            updateSection('Pool Cars', data.pool_cars);
+            updateSection('Admin Cars', data.admin_cars);
+            updateSection('Equipment', data.equipment);
+            updateSection('Key Rings', data.key_rings);
+        }
+        
+        function updateSection(category, items) {
+            if (!items) return; // Skip if no data
+            
+            const contentDiv = document.getElementById(`${category}-content`);
+            if (!contentDiv) return; // Skip if tab doesn't exist
+            
+            const gridDiv = contentDiv.querySelector('.grid');
+            if (!gridDiv) return;
+            
+            // Update the grid with new cards
+            gridDiv.innerHTML = items.map(key => {
+                const cardClass = key.checkout_id ? 'checked-out' : (key.is_available == 0 && key.is_available !== null && key.is_available !== undefined ? 'unavailable' : 'available');
+                let statusHtml = '';
+                if (key.checkout_id) {
+                    statusHtml = `<div class="status checked-out"><strong>Checked out to:</strong><br>${key.first_name} ${key.last_name}<br><small>Since ${key.checked_out_at}</small></div>`;
+                } else if (key.is_available == 0 && key.is_available !== null && key.is_available !== undefined) {
+                    statusHtml = `<div class="status unavailable">🚫 Unavailable</div>`;
+                } else {
+                    statusHtml = `<div class="status available">✓ Available</div>`;
+                }
+                let noteHtml = '';
+                if (key.note) {
+                    const createdBy = key.note.created_by ? `<br><small>By: ${key.note.created_by}</small>` : '';
+                    if (key.note.note_text.startsWith('UNAVAILABLE:')) {
+                        noteHtml = `<div style="background: #9E9E9E; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">🚫 ${key.note.note_text.substring(12).trim()}${createdBy}</div>`;
+                    } else {
+                        noteHtml = `<div style="background: #FF9800; color: black; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">⚠️ Note: ${key.note.note_text}${createdBy}</div>`;
+                    }
+                }
+                const reservationHtml = key.reservation ? `
+                    <div style="background: #FFA500; color: white; padding: 5px; margin-top: 5px; border-radius: 3px; font-size: 0.85em;">
+                        📅 Reserved<br>
+                        <small>
+                            ${key.reservation.first_name ? `For: ${key.reservation.first_name} ${key.reservation.last_name}<br>` : ''}
+                            ${key.reservation.reserved_for_name ? `For: ${key.reservation.reserved_for_name}<br>` : ''}
+                            Time: ${key.reservation.reserved_datetime}<br>
+                            ${key.reservation.reason || ''}
+                        </small>
+                    </div>` : '';
+                return `<div class="key-card ${cardClass}"><div class="vehicle-name">${key.vehicle_name}</div>${statusHtml}${reservationHtml}${noteHtml}</div>`;
+            }).join('');
+        }
+        
+        // Fetch initial data and poll for updates every 5 seconds as backup
+        function fetchStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => updateDisplay(data))
+                .catch(error => console.error('Error fetching status:', error));
+        }
+        
+        // Section collapse/expand
+        function toggleSection(section) {
+            const content = document.getElementById(section + 'Content');
+            const icon = document.getElementById(section + 'Icon');
+            
+            content.classList.toggle('collapsed');
+            icon.classList.toggle('collapsed');
+            
+            // Save state
+            const isCollapsed = content.classList.contains('collapsed');
+            localStorage.setItem(section + 'Collapsed', isCollapsed);
+        }
+        
+        // Restore collapsed states on load
+        window.addEventListener('load', () => {
+            ['vehicles', 'equipment'].forEach(section => {
+                const isCollapsed = localStorage.getItem(section + 'Collapsed') === 'true';
+                if (isCollapsed) {
+                    const content = document.getElementById(section + 'Content');
+                    const icon = document.getElementById(section + 'Icon');
+                    if (content && icon) {
+                        content.classList.add('collapsed');
+                        icon.classList.add('collapsed');
+                    }
+                }
+            });
+        });
+        // Tab switching functionality
+
+        document.querySelectorAll('.tab').forEach(tab => {
+
+            tab.addEventListener('click', function() {
+
+                const category = this.getAttribute('data-category');
+
+                switchToTab(category);
+
+               
+
+                // Save preference
+
+                localStorage.setItem('preferred_tab', category);
+
+            });
+
+        });
+
+       
+        function switchToTab(category) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(t => {
+                t.classList.remove('active');
+            });
+            
+            const tabButton = document.querySelector(`.tab[data-category="${category}"]`);
+            if (tabButton) {
+                tabButton.classList.add('active');
+            } else {
+                // Category doesn't exist, default to first tab
+                const firstTab = document.querySelector('.tab');
+                if (firstTab) {
+                    firstTab.classList.add('active');
+                    category = firstTab.getAttribute('data-category');
+                }
+            }
+            
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            const tabContent = document.getElementById(`${category}-content`);
+            if (tabContent) {
+                tabContent.classList.add('active');
+            }
+        }
+
+       
+
+        // Restore preferred tab on load
+
+        window.addEventListener('load', () => {
+
+            const preferredTab = localStorage.getItem('preferred_tab') || 'vehicles';
+
+            switchToTab(preferredTab);
+
+        });
+    </script>
+
+
+
+<!-- Vehicle Detail Modal -->
+<div id="vehicleModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; overflow-y:auto;">
+    <div style="background:white; max-width:600px; margin:50px auto; border-radius:12px; padding:30px; position:relative;">
+        <button onclick="closeModal()" style="position:absolute; top:15px; right:15px; background:#f44336; color:white; border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-size:16px;">✕</button>
+        <h2 id="modalTitle" style="margin-top:0; color:#333;"></h2>
+        <div id="modalMakeModel" style="color:#666; margin-bottom:15px;"></div>
+        
+        <div id="modalStatus" style="margin-bottom:20px;"></div>
+        
+        <div id="assignmentsSection" style="margin-bottom:20px;">
+            <h3 style="border-bottom:2px solid #eee; padding-bottom:8px;">Assignments</h3>
+            <div id="modalAssignments"></div>
+        </div>
+        
+        <div id="historySection">
+            <h3 style="border-bottom:2px solid #eee; padding-bottom:8px;">Recent Activity</h3>
+            <div id="modalHistory"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Make tiles clickable
+    document.addEventListener('click', function(e) {
+        const card = e.target.closest('.key-card');
+        if (card) {
+            const fobId = card.getAttribute('data-fob-id');
+            if (fobId) showVehicleDetail(fobId);
+        }
+    });
+
+    function showVehicleDetail(fobId) {
+        document.getElementById('vehicleModal').style.display = 'block';
+        document.getElementById('modalTitle').textContent = 'Loading...';
+        document.getElementById('modalMakeModel').textContent = '';
+        document.getElementById('modalAssignments').textContent = '';
+        document.getElementById('modalHistory').textContent = '';
+        document.getElementById('modalStatus').textContent = '';
+
+        fetch('/api/vehicle/' + fobId)
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('modalTitle').textContent = data.vehicle_name;
+                
+                // Make/model/year
+                if (data.year || data.make || data.model) {
+                    document.getElementById('modalMakeModel').textContent = 
+                        [data.year, data.make, data.model].filter(Boolean).join(' ');
+                }
+                
+                // Assignments
+                const assignEl = document.getElementById('modalAssignments');
+                if (data.assignments && data.assignments.length > 0) {
+                    assignEl.innerHTML = data.assignments.map(a => 
+                        `<div style="padding:6px 0; border-bottom:1px solid #f0f0f0;">
+                            <strong>${a.shift}:</strong> ${a.last_name}, ${a.first_name}
+                        </div>`
+                    ).join('');
+                    document.getElementById('assignmentsSection').style.display = 'block';
+                } else {
+                    document.getElementById('assignmentsSection').style.display = 'none';
+                }
+                
+                // History
+                const histEl = document.getElementById('modalHistory');
+                if (data.history && data.history.length > 0) {
+                    histEl.innerHTML = '<table style="width:100%; border-collapse:collapse;">' +
+                        '<tr style="background:#f5f5f5;"><th style="padding:6px; text-align:left;">Officer</th><th style="padding:6px; text-align:left;">Out</th><th style="padding:6px; text-align:left;">In</th></tr>' +
+                        data.history.map(h => 
+                            `<tr style="border-bottom:1px solid #eee;">
+                                <td style="padding:6px;">${h.last_name}, ${h.first_name}</td>
+                                <td style="padding:6px; font-size:13px;">${h.checked_out_at || '—'}</td>
+                                <td style="padding:6px; font-size:13px;">${h.checked_in_at || 'Still out'}</td>
+                            </tr>`
+                        ).join('') + '</table>';
+                } else {
+                    histEl.innerHTML = '<p style="color:#999;">No checkout history yet.</p>';
+                }
+            })
+            .catch(() => {
+                document.getElementById('modalTitle').textContent = 'Error loading details';
+            });
+    }
+
+    function closeModal() {
+        document.getElementById('vehicleModal').style.display = 'none';
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('vehicleModal').addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+    });
+</script>
+</body>
+</html>

@@ -343,6 +343,7 @@
     <button class="tab" data-category="Recent Checkout History">📋 Recent History</button>
     <button class="tab" data-category="Active Reservations">📅 Active Reservations</button>
     <button class="tab" data-category="Past Reservations">📅 Past Reservations</button>
+    <button class="tab" data-category="Inspections">🔍 Inspections</button>
 </div>    
 
 
@@ -493,6 +494,9 @@
                 <a href="/admin/fob/replace/{{ fob.id }}" class="btn" style="background: #FF9800; color: white;">Replace Fob</a>
                 <a href="/admin/fob/reserve/{{ fob.id }}" class="btn" style="background: #2196F3; color: white;">Reserve</a>
                 <a href="/admin/fob/barcode/{{ fob.id }}" class="btn" style="background: #9C27B0; color: white;">Barcode</a>
+                {% if fob.category in ['Squad Cars', 'Specialized Services Vehicles', 'CID Vehicles', 'Other Vehicles', 'Pool Cars', 'Admin Cars'] %}
+                    <a href="/admin/fob/inspection_qr/{{ fob.id }}" class="btn" style="background: #00BCD4; color: white;">Inspection QR</a>
+                {% endif %}
                 {% if fob.note %}
                     <a href="/admin/fob/note/edit/{{ fob.id }}" class="btn" style="background: #FFC107; color: black;">Edit Note</a>
                     {% if fob.note.expires_at %}
@@ -754,6 +758,56 @@
     </div>
 </div>
 
+<!-- Inspections Tab Content -->
+<div class="tab-content" id="Inspections-content">
+    <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;">
+        <div>
+            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Vehicle:</label>
+            <select id="inspectionFobFilter" style="padding: 5px;">
+                <option value="">All Vehicles</option>
+                {% for fob in fobs %}
+                    {% if fob.category in ['Squad Cars', 'Specialized Services Vehicles', 'CID Vehicles', 'Other Vehicles', 'Pool Cars', 'Admin Cars'] and fob.is_active %}
+                        <option value="{{ fob.id }}">{{ fob.vehicle_name }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label style="display: block; font-weight: bold; margin-bottom: 5px;">From:</label>
+            <input type="date" id="inspectionStartDate" style="padding: 5px;">
+        </div>
+        <div>
+            <label style="display: block; font-weight: bold; margin-bottom: 5px;">To:</label>
+            <input type="date" id="inspectionEndDate" style="padding: 5px;">
+        </div>
+        <button onclick="filterInspections()" class="btn btn-success">Filter</button>
+        <button onclick="exportInspections()" class="btn" style="background: #FF9800; color: white;">Export CSV</button>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table id="inspectionsTable">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Vehicle</th>
+                    <th>Inspector</th>
+                    <th>Mileage</th>
+                    <th>Fuel</th>
+                    <th>Damage</th>
+                    <th>Radio</th>
+                    <th>Laptop</th>
+                    <th>Lights</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody id="inspectionsBody">
+                <tr><td colspan="11" style="text-align: center; color: #999;">Use filters above to load inspections</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 </body>
 </html>
 
@@ -842,6 +896,57 @@
             document.getElementById('addFobForm').style.display = 'none';
         }
         
+        function filterInspections() {
+            const fobId = document.getElementById('inspectionFobFilter').value;
+            const startDate = document.getElementById('inspectionStartDate').value;
+            const endDate = document.getElementById('inspectionEndDate').value;
+            
+            let url = '/admin/api/inspections?';
+            if (fobId) url += `fob_id=${fobId}&`;
+            if (startDate) url += `start_date=${startDate}&`;
+            if (endDate) url += `end_date=${endDate}&`;
+            
+            fetch(url)
+                .then(r => r.json())
+                .then(data => {
+                    const tbody = document.getElementById('inspectionsBody');
+                    if (data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; color: #999;">No inspections found</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = data.map(i => `
+                        <tr>
+                            <td>${i.inspected_at}</td>
+                            <td>${i.vehicle_name}</td>
+                            <td>${i.inspector}</td>
+                            <td>${i.mileage || '—'}</td>
+                            <td>${i.fuel_level || '—'}</td>
+                            <td>${i.exterior_damage ? '⚠️ Yes' : '✓ No'}${i.exterior_damage_notes ? '<br><small>' + i.exterior_damage_notes + '</small>' : ''}</td>
+                            <td>${i.radio_present ? '✓' : '❌'}</td>
+                            <td>${i.laptop_present ? '✓' : '❌'}</td>
+                            <td>${i.lights_working ? '✓' : '❌'}</td>
+                            <td style="color: ${i.overall_status === 'Pass' ? '#4CAF50' : i.overall_status === 'Fail' ? '#f44336' : '#FF9800'}">
+                                <strong>${i.overall_status}</strong>
+                            </td>
+                            <td>${i.notes || '—'}</td>
+                        </tr>
+                    `).join('');
+                });
+        }
+
+        function exportInspections() {
+            const fobId = document.getElementById('inspectionFobFilter').value;
+            const startDate = document.getElementById('inspectionStartDate').value;
+            const endDate = document.getElementById('inspectionEndDate').value;
+            
+            let url = '/admin/export/inspections?';
+            if (fobId) url += `fob_id=${fobId}&`;
+            if (startDate) url += `start_date=${startDate}&`;
+            if (endDate) url += `end_date=${endDate}&`;
+            
+            window.location.href = url;
+        }
+
         function filterToday() {
             const now = new Date();
             const year = now.getFullYear();

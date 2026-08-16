@@ -100,6 +100,24 @@ def init_db():
         )
     ''')
     conn.execute('''
+        CREATE TABLE IF NOT EXISTS inspections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fob_id INTEGER NOT NULL,
+            inspector TEXT NOT NULL,
+            inspected_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            mileage TEXT,
+            fuel_level TEXT,
+            exterior_damage INTEGER DEFAULT 0,
+            exterior_damage_notes TEXT,
+            radio_present INTEGER DEFAULT 1,
+            laptop_present INTEGER DEFAULT 1,
+            lights_working INTEGER DEFAULT 1,
+            overall_status TEXT NOT NULL,
+            notes TEXT,
+            FOREIGN KEY (fob_id) REFERENCES key_fobs (id)
+        )
+    ''')
+    conn.execute('''
         CREATE TABLE IF NOT EXISTS vehicle_assignments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             fob_id INTEGER NOT NULL,

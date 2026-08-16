@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vehicle Inspection</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .form-container {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        h1 { color: #333; font-size: 24px; margin-bottom: 5px; }
+        h2 { color: #FF9800; font-size: 18px; margin-top: 0; }
+        label {
+            display: block;
+            margin-top: 15px;
+            font-weight: bold;
+            color: #333;
+        }
+        input[type="text"], input[type="number"], select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        textarea { height: 80px; resize: vertical; }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+        }
+        .status-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .status-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            font-size: 16px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .status-btn.pass { border-color: #4CAF50; }
+        .status-btn.pass.selected { background: #4CAF50; color: white; }
+        .status-btn.attention { border-color: #FF9800; }
+        .status-btn.attention.selected { background: #FF9800; color: white; }
+        .status-btn.fail { border-color: #f44336; }
+        .status-btn.fail.selected { background: #f44336; color: white; }
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 18px;
+            cursor: pointer;
+            margin-top: 25px;
+        }
+        .submit-btn:hover { background: #388E3C; }
+        .damage-notes { display: none; margin-top: 10px; }
+        .section-divider {
+            border-top: 2px solid #eee;
+            margin: 20px 0;
+        }
+        .info-box {
+            background: #e3f2fd;
+            padding: 10px 15px;
+            border-radius: 5px;
+            border-left: 4px solid #2196F3;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>🚓 Vehicle Inspection</h1>
+        <h2>{{ fob.vehicle_name }}</h2>
+        
+        <div class="info-box">
+            Inspector: <strong>{{ inspector }}</strong><br>
+            Date: <strong id="currentDate"></strong>
+        </div>
+
+        <form method="POST">
+            <label>Mileage:</label>
+            <input type="number" name="mileage" placeholder="e.g., 45231" required>
+
+            <label>Fuel Level:</label>
+            <select name="fuel_level" required>
+                <option value="">-- Select --</option>
+                <option value="Full">Full</option>
+                <option value="3/4">3/4</option>
+                <option value="1/2">1/2</option>
+                <option value="1/4">1/4</option>
+                <option value="Empty">Empty</option>
+            </select>
+
+            <div class="section-divider"></div>
+
+            <label>Exterior Damage?</label>
+            <div class="checkbox-group">
+                <input type="checkbox" id="exterior_damage" name="exterior_damage" value="1"
+                       onchange="document.getElementById('damageNotes').style.display = this.checked ? 'block' : 'none'">
+                <label for="exterior_damage" style="font-weight: normal; margin: 0;">Yes, damage present</label>
+            </div>
+            <div id="damageNotes" class="damage-notes">
+                <textarea name="exterior_damage_notes" placeholder="Describe the damage..."></textarea>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <label>Equipment Check:</label>
+            <div class="checkbox-group">
+                <input type="checkbox" name="radio_present" value="1" checked id="radio">
+                <label for="radio" style="font-weight: normal; margin: 0;">📻 Radio Present</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" name="laptop_present" value="1" checked id="laptop">
+                <label for="laptop" style="font-weight: normal; margin: 0;">💻 Laptop/MDC Present</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" name="lights_working" value="1" checked id="lights">
+                <label for="lights" style="font-weight: normal; margin: 0;">🚨 Lights Working</label>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <label>Overall Status:</label>
+            <div class="status-buttons">
+                <div class="status-btn pass" onclick="selectStatus('Pass')">✅ Pass</div>
+                <div class="status-btn attention" onclick="selectStatus('Needs Attention')">⚠️ Needs Attention</div>
+                <div class="status-btn fail" onclick="selectStatus('Fail')">❌ Fail</div>
+            </div>
+            <input type="hidden" name="overall_status" id="overall_status" required>
+
+            <label>Notes:</label>
+            <textarea name="notes" placeholder="Any additional comments..."></textarea>
+
+            <button type="submit" class="submit-btn">Submit Inspection</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+
+        function selectStatus(status) {
+            document.querySelectorAll('.status-btn').forEach(btn => btn.classList.remove('selected'));
+            document.getElementById('overall_status').value = status;
+            const map = {'Pass': 'pass', 'Needs Attention': 'attention', 'Fail': 'fail'};
+            document.querySelector('.' + map[status]).classList.add('selected');
+        }
+    </script>
+</body>
+</html>
