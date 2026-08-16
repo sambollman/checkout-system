@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, make_response, send_file
 from flask_socketio import SocketIO, emit
-from database import get_db
+from database import get_db, run_migrations
 from datetime import datetime, timedelta
 import pytz
 import hashlib
@@ -2726,6 +2726,9 @@ def delete_admin_user(admin_id):
     
     return redirect('/admin/admins')
 
+
+# Run migrations on startup
+run_migrations()
 
 if __name__ == '__main__':
 # Get debug settings from environment (default to False for production safety)
