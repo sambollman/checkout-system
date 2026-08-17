@@ -929,15 +929,18 @@ if ADMIN_PASSWORD and not OKTA_HEADER:
     @app.route('/admin/login', methods=['GET', 'POST'])
     def admin_login():
         """Admin login page (development/emergency use only)"""
+        next_url = request.args.get('next') or request.form.get('next')
         if request.method == 'POST':
             password = request.form.get('password')
             if password == ADMIN_PASSWORD:
                 session['admin'] = True
+                if next_url:
+                    return redirect(next_url)
                 return redirect(url_for('admin_dashboard'))
             else:
-                return render_template('admin_login.html', error='Invalid password')
+                return render_template('admin_login.html', error='Invalid password', next=next_url)
         
-        return render_template('admin_login.html')
+        return render_template('admin_login.html', next=next_url)
 
 @app.route('/api/bulk_checkout', methods=['POST'])
 @require_kiosk_auth
@@ -1228,7 +1231,7 @@ def inspect_vehicle(fob_id):
     username = get_authenticated_user()
     if not username:
         if not session.get('admin'):
-            return redirect('/admin/login')
+            return redirect(f'/admin/login?next=/inspect/{fob_id}')
         username = session.get('username', 'Admin')
 
     conn = get_db()
