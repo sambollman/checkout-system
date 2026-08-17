@@ -1225,13 +1225,31 @@ def admin_logout():
     session.pop('admin', None)
     return redirect(url_for('index'))
 
-@app.route('/inspect/<int:fob_id>', methods=['GET', 'POST'])
+@app.route('/inspect/<int:fob_id>')
 def inspect_vehicle(fob_id):
-    """Vehicle inspection form - requires OKTA auth"""
+    """Vehicle inspection landing page"""
     username = get_authenticated_user()
     if not username:
         if not session.get('admin'):
             return redirect(f'/admin/login?next=/inspect/{fob_id}')
+        username = session.get('username', 'Admin')
+
+    conn = get_db()
+    fob = conn.execute('SELECT * FROM key_fobs WHERE id = ?', (fob_id,)).fetchone()
+    conn.close()
+    
+    if not fob:
+        return "Vehicle not found", 404
+
+    return render_template('inspection_landing.html', fob=fob, inspector=username)
+
+@app.route('/inspect/<int:fob_id>/cleanliness', methods=['GET', 'POST'])
+def inspect_cleanliness(fob_id):
+    """Monthly cleanliness inspection form"""
+    username = get_authenticated_user()
+    if not username:
+        if not session.get('admin'):
+            return redirect(f'/admin/login?next=/inspect/{fob_id}/cleanliness')
         username = session.get('username', 'Admin')
 
     conn = get_db()
@@ -1243,30 +1261,90 @@ def inspect_vehicle(fob_id):
 
     if request.method == 'POST':
         chicago_tz = pytz.timezone('America/Chicago')
-        mileage = request.form.get('mileage')
-        fuel_level = request.form.get('fuel_level')
-        exterior_damage = 1 if request.form.get('exterior_damage') else 0
-        exterior_damage_notes = request.form.get('exterior_damage_notes')
-        radio_present = 1 if request.form.get('radio_present') else 0
-        laptop_present = 1 if request.form.get('laptop_present') else 0
-        lights_working = 1 if request.form.get('lights_working') else 0
-        overall_status = request.form.get('overall_status')
-        notes = request.form.get('notes')
-
         conn.execute('''
-            INSERT INTO inspections (fob_id, inspector, inspected_at, mileage, fuel_level,
-                exterior_damage, exterior_damage_notes, radio_present, laptop_present,
-                lights_working, overall_status, notes)
+            INSERT INTO cleanliness_inspections (
+                fob_id, inspector, inspected_at,
+                exterior_clean, interior_vacuumed,
+                wiped_dashboard, wiped_center_console, wiped_windows,
+                wiped_interior_doors, wiped_backseats, wiped_keyboard_mdc,
+                comments)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (fob_id, username, datetime.now(chicago_tz).isoformat(),
-               mileage, fuel_level, exterior_damage, exterior_damage_notes,
-               radio_present, laptop_present, lights_working, overall_status, notes))
+        ''', (
+            fob_id, username, datetime.now(chicago_tz).isoformat(),
+            1 if request.form.get('exterior_clean') == '1' else 0,
+            1 if request.form.get('interior_vacuumed') == '1' else 0,
+            1 if request.form.get('wiped_dashboard') else 0,
+            1 if request.form.get('wiped_center_console') else 0,
+            1 if request.form.get('wiped_windows') else 0,
+            1 if request.form.get('wiped_interior_doors') else 0,
+            1 if request.form.get('wiped_backseats') else 0,
+            1 if request.form.get('wiped_keyboard_mdc') else 0,
+            request.form.get('comments')
+        ))
         conn.commit()
         conn.close()
-        return render_template('inspection_success.html', vehicle_name=fob['vehicle_name'])
+        return render_template('inspection_success.html', vehicle_name=fob['vehicle_name'], inspection_type='Monthly Cleanliness')
 
     conn.close()
-    return render_template('inspection_form.html', fob=fob, inspector=username)
+    return render_template('cleanliness_form.html', fob=fob, inspector=username)
+
+@app.route('/inspect/<int:fob_id>/quarterly', methods=['GET', 'POST'])
+def inspect_quarterly(fob_id):
+    """Quarterly inventory inspection form"""
+    username = get_authenticated_user()
+    if not username:
+        if not session.get('admin'):
+            return redirect(f'/admin/login?next=/inspect/{fob_id}/quarterly')
+        username = session.get('username', 'Admin')
+
+    conn = get_db()
+    fob = conn.execute('SELECT * FROM key_fobs WHERE id = ?', (fob_id,)).fetchone()
+    
+    if not fob:
+        conn.close()
+        return "Vehicle not found", 404
+
+    if request.method == 'POST':
+        chicago_tz = pytz.timezone('America/Chicago')
+        fields = [
+            'registration_current', 'tires_inflated', 'compartment_clean',
+            'light_bar_working', 'mdc_working', 'radio_working', 'radar_working',
+            'scanner_working', 'axon_camera_working', 'spotlight_working',
+            'seatbelts_working', 'headlights_working', 'trunk_clean',
+            'spare_tire_inflated', 'ar15_present', 'backpack_present',
+            'phone_charger_present', 'evidence_bag_present', 'aed_present',
+            'tuning_forks_present', 'ice_scraper_present',
+            'firstaid_large_gloves', 'firstaid_cloth_tape', 'firstaid_trauma_shears',
+            'firstaid_bandaids', 'firstaid_gauze', 'firstaid_alcohol_prep',
+            'firstaid_tourniquets', 'firstaid_chest_seals', 'firstaid_sroll_gauze',
+            'bio_hazard_kit', 'printer_paper', 'tape_measure', 'emergency_blanket',
+            'fire_extinguisher', 'traffic_vest', 'ripp_restraint', 'red_cone',
+            'barrier_tape', 'pet_carrier', 'red_paint', 'code100_mask', 'riot_baton',
+            'sani_wipes', 'sharps_container', 'stop_sticks', 'water_rescue_bag',
+            'window_punch', 'spit_hood', 'citation_book', 'parking_ticket_book'
+        ]
+        
+        values = [fob_id, username, datetime.now(chicago_tz).isoformat()]
+        for field in fields:
+            val = request.form.get(field)
+            if val == '1':
+                values.append(1)
+            elif val == '0':
+                values.append(0)
+            else:
+                values.append(1 if request.form.get(field) else 0)
+        values.append(request.form.get('comments'))
+        
+        placeholders = ', '.join(['?' for _ in range(len(fields) + 4)])
+        field_names = 'fob_id, inspector, inspected_at, ' + ', '.join(fields) + ', comments'
+        
+        conn.execute(f'INSERT INTO quarterly_inspections ({field_names}) VALUES ({placeholders})', values)
+        conn.commit()
+        conn.close()
+        return render_template('inspection_success.html', vehicle_name=fob['vehicle_name'], inspection_type='Quarterly Inventory')
+
+    conn.close()
+    return render_template('quarterly_form.html', fob=fob, inspector=username)
 
 @app.route('/admin')
 def admin_dashboard():
@@ -1704,13 +1782,16 @@ def api_inspections():
     conn = get_db()
     chicago_tz = pytz.timezone('America/Chicago')
     
+    inspection_type = request.args.get('type', 'cleanliness')
     fob_id = request.args.get('fob_id')
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     
-    query = '''
+    table = 'cleanliness_inspections' if inspection_type == 'cleanliness' else 'quarterly_inspections'
+    
+    query = f'''
         SELECT i.*, kf.vehicle_name
-        FROM inspections i
+        FROM {table} i
         JOIN key_fobs kf ON i.fob_id = kf.id
         WHERE 1=1
     '''
@@ -1742,9 +1823,64 @@ def api_inspections():
                 r['inspected_at'] = dt.strftime('%Y-%m-%d %I:%M %p')
             except:
                 pass
+        
+        # For quarterly, count issues (fields that are 0 but should be 1)
+        if inspection_type == 'quarterly':
+            issue_fields = [
+                'registration_current', 'tires_inflated', 'compartment_clean',
+                'light_bar_working', 'mdc_working', 'radio_working', 'radar_working',
+                'scanner_working', 'axon_camera_working', 'spotlight_working',
+                'seatbelts_working', 'headlights_working', 'trunk_clean',
+                'spare_tire_inflated', 'ar15_present', 'backpack_present',
+                'phone_charger_present', 'evidence_bag_present', 'aed_present',
+                'tuning_forks_present', 'ice_scraper_present',
+                'firstaid_large_gloves', 'firstaid_cloth_tape', 'firstaid_trauma_shears',
+                'firstaid_bandaids', 'firstaid_gauze', 'firstaid_alcohol_prep',
+                'firstaid_tourniquets', 'firstaid_chest_seals', 'firstaid_sroll_gauze',
+                'bio_hazard_kit', 'printer_paper', 'tape_measure', 'emergency_blanket',
+                'fire_extinguisher', 'traffic_vest', 'ripp_restraint', 'red_cone',
+                'barrier_tape', 'pet_carrier', 'red_paint', 'code100_mask', 'riot_baton',
+                'sani_wipes', 'sharps_container', 'stop_sticks', 'water_rescue_bag',
+                'window_punch', 'spit_hood', 'citation_book', 'parking_ticket_book'
+            ]
+            r['issues_count'] = sum(1 for f in issue_fields if f in r and r[f] == 0)
+        
         result.append(r)
     
     return result
+
+@app.route('/admin/inspection/<inspection_type>/<int:inspection_id>')
+def view_inspection(inspection_type, inspection_id):
+    """View a single inspection in read-only mode"""
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    
+    conn = get_db()
+    chicago_tz = pytz.timezone('America/Chicago')
+    
+    table = 'cleanliness_inspections' if inspection_type == 'cleanliness' else 'quarterly_inspections'
+    row = conn.execute(f'''
+        SELECT i.*, kf.vehicle_name
+        FROM {table} i
+        JOIN key_fobs kf ON i.fob_id = kf.id
+        WHERE i.id = ?
+    ''', (inspection_id,)).fetchone()
+    conn.close()
+    
+    if not row:
+        return "Inspection not found", 404
+    
+    r = dict(row)
+    if r['inspected_at']:
+        try:
+            dt = datetime.fromisoformat(r['inspected_at'])
+            if dt.tzinfo is not None:
+                dt = dt.astimezone(chicago_tz)
+            r['inspected_at'] = dt.strftime('%A, %B %d, %Y at %I:%M %p')
+        except:
+            pass
+    
+    return render_template('inspection_detail.html', inspection=r, inspection_type=inspection_type)
 
 @app.route('/admin/export/inspections')
 def export_inspections():
@@ -1755,13 +1891,16 @@ def export_inspections():
     conn = get_db()
     chicago_tz = pytz.timezone('America/Chicago')
     
+    inspection_type = request.args.get('type', 'cleanliness')
     fob_id = request.args.get('fob_id')
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     
-    query = '''
+    table = 'cleanliness_inspections' if inspection_type == 'cleanliness' else 'quarterly_inspections'
+    
+    query = f'''
         SELECT i.*, kf.vehicle_name
-        FROM inspections i
+        FROM {table} i
         JOIN key_fobs kf ON i.fob_id = kf.id
         WHERE 1=1
     '''
@@ -1787,37 +1926,88 @@ def export_inspections():
     
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow(['Date', 'Vehicle', 'Inspector', 'Mileage', 'Fuel Level',
-                     'Exterior Damage', 'Damage Notes', 'Radio Present',
-                     'Laptop Present', 'Lights Working', 'Overall Status', 'Notes'])
     
-    for row in rows:
-        r = dict(row)
-        if r['inspected_at']:
-            try:
-                dt = datetime.fromisoformat(r['inspected_at'])
-                if dt.tzinfo is not None:
-                    dt = dt.astimezone(chicago_tz)
-                r['inspected_at'] = dt.strftime('%Y-%m-%d %I:%M %p')
-            except:
-                pass
-        writer.writerow([
-            r['inspected_at'], r['vehicle_name'], r['inspector'],
-            r['mileage'], r['fuel_level'],
-            'Yes' if r['exterior_damage'] else 'No',
-            r['exterior_damage_notes'] or '',
-            'Yes' if r['radio_present'] else 'No',
-            'Yes' if r['laptop_present'] else 'No',
-            'Yes' if r['lights_working'] else 'No',
-            r['overall_status'], r['notes'] or ''
-        ])
+    if inspection_type == 'cleanliness':
+        writer.writerow(['Date', 'Vehicle', 'Inspector', 'Exterior Clean',
+                        'Interior Vacuumed', 'Dashboard', 'Center Console',
+                        'Windows', 'Interior Doors', 'Backseats', 'Keyboard/MDC', 'Comments'])
+        for row in rows:
+            r = dict(row)
+            if r['inspected_at']:
+                try:
+                    dt = datetime.fromisoformat(r['inspected_at'])
+                    if dt.tzinfo is not None:
+                        dt = dt.astimezone(chicago_tz)
+                    r['inspected_at'] = dt.strftime('%Y-%m-%d %I:%M %p')
+                except:
+                    pass
+            writer.writerow([
+                r['inspected_at'], r['vehicle_name'], r['inspector'],
+                'Yes' if r['exterior_clean'] else 'No',
+                'Yes' if r['interior_vacuumed'] else 'No',
+                'Yes' if r['wiped_dashboard'] else 'No',
+                'Yes' if r['wiped_center_console'] else 'No',
+                'Yes' if r['wiped_windows'] else 'No',
+                'Yes' if r['wiped_interior_doors'] else 'No',
+                'Yes' if r['wiped_backseats'] else 'No',
+                'Yes' if r['wiped_keyboard_mdc'] else 'No',
+                r['comments'] or ''
+            ])
+    else:
+        writer.writerow(['Date', 'Vehicle', 'Inspector',
+                        'Registration Current', 'Tires Inflated', 'Compartment Clean',
+                        'Light Bar Working', 'MDC Working', 'Radio Working', 'RADAR Working',
+                        'Scanner Working', 'AXON Camera', 'Spotlight', 'Seat Belts',
+                        'Headlights', 'Trunk Clean', 'Spare Tire',
+                        'AR-15', 'Backpack', 'Phone Charger', 'Evidence Bag', 'AED',
+                        'Tuning Forks', 'Ice Scraper',
+                        'FA: Large Gloves', 'FA: Cloth Tape', 'FA: Trauma Shears',
+                        'FA: Bandaids', 'FA: Gauze', 'FA: Alcohol Prep',
+                        'FA: Tourniquets', 'FA: Chest Seals', 'FA: S-Roll Gauze',
+                        'Bio Hazard Kit', 'Printer Paper', 'Tape Measure',
+                        'Emergency Blanket', 'Fire Extinguisher', 'Traffic Vest',
+                        'RIPP Restraint', 'Red Cone', 'Barrier Tape', 'Pet Carrier',
+                        'Red Paint', 'Code 100 Mask', 'Riot Baton', 'Sani Wipes',
+                        'Sharps Container', 'Stop Sticks', 'Water Rescue Bag',
+                        'Window Punch', 'Spit Hood', 'Citation Book', 'Parking Ticket Book',
+                        'Comments'])
+        for row in rows:
+            r = dict(row)
+            if r['inspected_at']:
+                try:
+                    dt = datetime.fromisoformat(r['inspected_at'])
+                    if dt.tzinfo is not None:
+                        dt = dt.astimezone(chicago_tz)
+                    r['inspected_at'] = dt.strftime('%Y-%m-%d %I:%M %p')
+                except:
+                    pass
+            yn = lambda f: 'Yes' if r.get(f) else 'No'
+            writer.writerow([
+                r['inspected_at'], r['vehicle_name'], r['inspector'],
+                yn('registration_current'), yn('tires_inflated'), yn('compartment_clean'),
+                yn('light_bar_working'), yn('mdc_working'), yn('radio_working'), yn('radar_working'),
+                yn('scanner_working'), yn('axon_camera_working'), yn('spotlight_working'),
+                yn('seatbelts_working'), yn('headlights_working'), yn('trunk_clean'), yn('spare_tire_inflated'),
+                yn('ar15_present'), yn('backpack_present'), yn('phone_charger_present'),
+                yn('evidence_bag_present'), yn('aed_present'), yn('tuning_forks_present'), yn('ice_scraper_present'),
+                yn('firstaid_large_gloves'), yn('firstaid_cloth_tape'), yn('firstaid_trauma_shears'),
+                yn('firstaid_bandaids'), yn('firstaid_gauze'), yn('firstaid_alcohol_prep'),
+                yn('firstaid_tourniquets'), yn('firstaid_chest_seals'), yn('firstaid_sroll_gauze'),
+                yn('bio_hazard_kit'), yn('printer_paper'), yn('tape_measure'),
+                yn('emergency_blanket'), yn('fire_extinguisher'), yn('traffic_vest'),
+                yn('ripp_restraint'), yn('red_cone'), yn('barrier_tape'), yn('pet_carrier'),
+                yn('red_paint'), yn('code100_mask'), yn('riot_baton'), yn('sani_wipes'),
+                yn('sharps_container'), yn('stop_sticks'), yn('water_rescue_bag'),
+                yn('window_punch'), yn('spit_hood'), yn('citation_book'), yn('parking_ticket_book'),
+                r['comments'] or ''
+            ])
     
     output.seek(0)
     from flask import Response
     return Response(
         output.getvalue(),
         mimetype='text/csv',
-        headers={'Content-Disposition': 'attachment; filename=inspections.csv'}
+        headers={'Content-Disposition': f'attachment; filename={inspection_type}_inspections.csv'}
     )
 
 @app.route('/admin/export/history')

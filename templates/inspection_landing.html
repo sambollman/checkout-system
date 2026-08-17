@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vehicle Inspection</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a2e;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            padding: 40px 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        .vehicle-name {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 40px;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            box-sizing: border-box;
+        }
+        .btn-cleanliness {
+            background: #2196F3;
+            color: white;
+        }
+        .btn-quarterly {
+            background: #4CAF50;
+            color: white;
+        }
+        .inspector {
+            margin-top: 20px;
+            color: #999;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="font-size: 60px;">🚓</div>
+        <div class="vehicle-name">{{ fob.vehicle_name }}</div>
+        <div class="subtitle">Select inspection type</div>
+        
+        <a href="/inspect/{{ fob.id }}/cleanliness" class="btn btn-cleanliness">
+            🧹 Monthly Cleanliness
+        </a>
+        <a href="/inspect/{{ fob.id }}/quarterly" class="btn btn-quarterly">
+            📋 Quarterly Inventory
+        </a>
+        
+        <div class="inspector">Inspector: {{ inspector }}</div>
+    </div>
+</body>
+</html>

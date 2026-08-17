@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Inspection Detail</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f0f0f0; }
+        .container { background: white; padding: 25px; border-radius: 8px; max-width: 700px; margin: 0 auto; }
+        h1 { color: #333; font-size: 22px; }
+        .meta { background: #f5f5f5; padding: 12px; border-radius: 5px; margin-bottom: 20px; font-size: 14px; }
+        .meta strong { color: #333; }
+        .section { margin: 20px 0; border-top: 2px solid #eee; padding-top: 15px; }
+        .section-title { font-weight: bold; font-size: 16px; color: #333; margin-bottom: 10px; }
+        .item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f5f5f5; }
+        .item:last-child { border-bottom: none; }
+        .item-label { font-size: 15px; color: #444; }
+        .pass { color: #4CAF50; font-weight: bold; }
+        .fail { color: #f44336; font-weight: bold; }
+        .comments { background: #fff3cd; padding: 12px; border-radius: 5px; margin-top: 20px; }
+        .print-btn { background: #2196F3; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 14px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button class="print-btn" onclick="window.print()">🖨️ Print</button>
+        
+        {% if inspection_type == 'cleanliness' %}
+        <h1>🧹 Monthly Cleanliness Inspection</h1>
+        {% else %}
+        <h1>📋 Quarterly Inventory Inspection</h1>
+        {% endif %}
+        
+        <div class="meta">
+            <strong>Vehicle:</strong> {{ inspection.vehicle_name }}<br>
+            <strong>Inspector:</strong> {{ inspection.inspector }}<br>
+            <strong>Date:</strong> {{ inspection.inspected_at }}
+        </div>
+
+        {% if inspection_type == 'cleanliness' %}
+        <div class="section">
+            <div class="section-title">Exterior</div>
+            <div class="item">
+                <span class="item-label">Exterior Clean</span>
+                <span class="{{ "pass" if inspection.exterior_clean else "fail" }}">{{ "✅ Yes" if inspection.exterior_clean else "❌ No" }}</span>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-title">Interior</div>
+            <div class="item">
+                <span class="item-label">Interior Vacuumed & Clear of Debris</span>
+                <span class="{{ "pass" if inspection.interior_vacuumed else "fail" }}">{{ "✅ Yes" if inspection.interior_vacuumed else "❌ No" }}</span>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-title">Wiped Down & Clean</div>
+            {% for field, label in [
+                ("wiped_dashboard", "Dashboard"),
+                ("wiped_center_console", "Center Console"),
+                ("wiped_windows", "Windows"),
+                ("wiped_interior_doors", "Interior Doors"),
+                ("wiped_backseats", "Backseats"),
+                ("wiped_keyboard_mdc", "Keyboard/MDC")
+            ] %}
+            <div class="item">
+                <span class="item-label">{{ label }}</span>
+                <span class="{{ "pass" if inspection[field] else "fail" }}">{{ "✅ Yes" if inspection[field] else "❌ No" }}</span>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% else %}
+        <div class="section">
+            <div class="section-title">Vehicle Condition</div>
+            {% for field, label in [
+                ("registration_current", "Vehicle registration current and properly displayed"),
+                ("tires_inflated", "Tires properly inflated"),
+                ("compartment_clean", "Passenger compartment clean and free of unnecessary items"),
+                ("light_bar_working", "Light bar working properly"),
+                ("mdc_working", "MDC clean and working properly"),
+                ("radio_working", "Police radio working properly"),
+                ("radar_working", "RADAR installed and working properly"),
+                ("scanner_working", "Scanner working properly"),
+                ("axon_camera_working", "AXON Fleet Camera working properly"),
+                ("spotlight_working", "Spotlight working properly"),
+                ("seatbelts_working", "Seat belts working properly"),
+                ("headlights_working", "Headlights, tail lights, and turn signals working properly"),
+                ("trunk_clean", "Trunk clean, organized, and free of unnecessary items"),
+                ("spare_tire_inflated", "Spare tire properly inflated")
+            ] %}
+            <div class="item">
+                <span class="item-label">{{ label }}</span>
+                <span class="{{ "pass" if inspection[field] else "fail" }}">{{ "✅ Yes" if inspection[field] else "❌ No" }}</span>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="section">
+            <div class="section-title">Equipment Present & Working</div>
+            {% for field, label in [
+                ("ar15_present", "AR-15 Rifle"),
+                ("backpack_present", "Backpack with helmet/back rifle plate/extra mags"),
+                ("phone_charger_present", "Cell Phone Charger"),
+                ("evidence_bag_present", "Clear evidence bag"),
+                ("aed_present", "AED"),
+                ("tuning_forks_present", "Tuning Forks"),
+                ("ice_scraper_present", "Ice Scraper")
+            ] %}
+            <div class="item">
+                <span class="item-label">{{ label }}</span>
+                <span class="{{ "pass" if inspection[field] else "fail" }}">{{ "✅ Yes" if inspection[field] else "❌ No" }}</span>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="section">
+            <div class="section-title">First Aid Go Bag Contents</div>
+            {% for field, label in [
+                ("firstaid_large_gloves", "(2) Large Gloves"),
+                ("firstaid_cloth_tape", "2' Cloth Tape"),
+                ("firstaid_trauma_shears", "Trauma Shears"),
+                ("firstaid_bandaids", "Bandaids"),
+                ("firstaid_gauze", "4x4 Gauze"),
+                ("firstaid_alcohol_prep", "Alcohol Prep Pads (4)"),
+                ("firstaid_tourniquets", "Tourniquets"),
+                ("firstaid_chest_seals", "(4) Chest Seals"),
+                ("firstaid_sroll_gauze", "S-Roll Gauze")
+            ] %}
+            <div class="item">
+                <span class="item-label">{{ label }}</span>
+                <span class="{{ "pass" if inspection[field] else "fail" }}">{{ "✅ Yes" if inspection[field] else "❌ No" }}</span>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="section">
+            <div class="section-title">Additional Equipment</div>
+            {% for field, label in [
+                ("bio_hazard_kit", "BIO Hazard Kit"),
+                ("printer_paper", "Printer Paper (1 extra roll)"),
+                ("tape_measure", "Tape Measure"),
+                ("emergency_blanket", "Emergency Blanket"),
+                ("fire_extinguisher", "Fire Extinguisher"),
+                ("traffic_vest", "Traffic Vest"),
+                ("ripp_restraint", "RIPP Restraint"),
+                ("red_cone", "Red Cone for Stinger Flashlight"),
+                ("barrier_tape", "Yellow Police Barrier Tape"),
+                ("pet_carrier", "Pet Carrier"),
+                ("red_paint", "Red Paint/Upside down spray can"),
+                ("code100_mask", "Code 100 Mask Kit"),
+                ("riot_baton", "Riot Baton"),
+                ("sani_wipes", "Sani Wipes (Purple Top Container)"),
+                ("sharps_container", "Sharps Container"),
+                ("stop_sticks", "Stop Sticks / Stop Stick Reel Cord"),
+                ("water_rescue_bag", "Water Rescue Bag"),
+                ("window_punch", "Window Punch"),
+                ("spit_hood", "Spit Hood"),
+                ("citation_book", "Citation / Warning Book / Envelopes"),
+                ("parking_ticket_book", "Parking Ticket Book / Tow Tags / Chalk")
+            ] %}
+            <div class="item">
+                <span class="item-label">{{ label }}</span>
+                <span class="{{ "pass" if inspection[field] else "fail" }}">{{ "✅ Yes" if inspection[field] else "❌ No" }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if inspection.comments %}
+        <div class="comments">
+            <strong>Comments:</strong><br>
+            {{ inspection.comments }}
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

@@ -760,6 +760,19 @@
 
 <!-- Inspections Tab Content -->
 <div class="tab-content" id="Inspections-content">
+    <!-- Sub-tabs -->
+    <div style="margin-bottom: 15px; border-bottom: 2px solid #ddd;">
+        <button onclick="switchInspectionTab('cleanliness')" id="tab-cleanliness"
+            style="padding: 8px 20px; border: none; background: #2196F3; color: white; cursor: pointer; font-size: 14px; border-radius: 4px 4px 0 0; margin-right: 5px;">
+            🧹 Monthly Cleanliness
+        </button>
+        <button onclick="switchInspectionTab('quarterly')" id="tab-quarterly"
+            style="padding: 8px 20px; border: none; background: #ddd; color: #333; cursor: pointer; font-size: 14px; border-radius: 4px 4px 0 0;">
+            📋 Quarterly Inventory
+        </button>
+    </div>
+
+    <!-- Filters -->
     <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;">
         <div>
             <label style="display: block; font-weight: bold; margin-bottom: 5px;">Vehicle:</label>
@@ -787,22 +800,18 @@
     <div style="overflow-x: auto;">
         <table id="inspectionsTable">
             <thead>
-                <tr>
+                <tr id="inspectionsHeader">
                     <th>Date</th>
                     <th>Vehicle</th>
                     <th>Inspector</th>
-                    <th>Mileage</th>
-                    <th>Fuel</th>
-                    <th>Damage</th>
-                    <th>Radio</th>
-                    <th>Laptop</th>
-                    <th>Lights</th>
-                    <th>Status</th>
-                    <th>Notes</th>
+                    <th>Exterior Clean</th>
+                    <th>Interior Vacuumed</th>
+                    <th>Wiped Down</th>
+                    <th>Comments</th>
                 </tr>
             </thead>
             <tbody id="inspectionsBody">
-                <tr><td colspan="11" style="text-align: center; color: #999;">Use filters above to load inspections</td></tr>
+                <tr><td colspan="7" style="text-align: center; color: #999;">Use filters above to load inspections</td></tr>
             </tbody>
         </table>
     </div>
@@ -896,12 +905,32 @@
             document.getElementById('addFobForm').style.display = 'none';
         }
         
+        let currentInspectionType = 'cleanliness';
+
+        function switchInspectionTab(type) {
+            currentInspectionType = type;
+            document.getElementById('tab-cleanliness').style.background = type === 'cleanliness' ? '#2196F3' : '#ddd';
+            document.getElementById('tab-cleanliness').style.color = type === 'cleanliness' ? 'white' : '#333';
+            document.getElementById('tab-quarterly').style.background = type === 'quarterly' ? '#4CAF50' : '#ddd';
+            document.getElementById('tab-quarterly').style.color = type === 'quarterly' ? 'white' : '#333';
+            
+            // Update table headers
+            const header = document.getElementById('inspectionsHeader');
+            if (type === 'cleanliness') {
+                header.innerHTML = '<th>Date</th><th>Vehicle</th><th>Inspector</th><th>Exterior Clean</th><th>Interior Vacuumed</th><th>Wiped Down</th><th>Comments</th>';
+            } else {
+                header.innerHTML = '<th>Date</th><th>Vehicle</th><th>Inspector</th><th>Issues Found</th><th>Comments</th>';
+            }
+            
+            document.getElementById('inspectionsBody').innerHTML = '<tr><td colspan="7" style="text-align: center; color: #999;">Use filters above to load inspections</td></tr>';
+        }
+
         function filterInspections() {
             const fobId = document.getElementById('inspectionFobFilter').value;
             const startDate = document.getElementById('inspectionStartDate').value;
             const endDate = document.getElementById('inspectionEndDate').value;
             
-            let url = '/admin/api/inspections?';
+            let url = `/admin/api/inspections?type=${currentInspectionType}&`;
             if (fobId) url += `fob_id=${fobId}&`;
             if (startDate) url += `start_date=${startDate}&`;
             if (endDate) url += `end_date=${endDate}&`;
@@ -911,26 +940,41 @@
                 .then(data => {
                     const tbody = document.getElementById('inspectionsBody');
                     if (data.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; color: #999;">No inspections found</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #999;">No inspections found</td></tr>';
                         return;
                     }
-                    tbody.innerHTML = data.map(i => `
-                        <tr>
-                            <td>${i.inspected_at}</td>
-                            <td>${i.vehicle_name}</td>
-                            <td>${i.inspector}</td>
-                            <td>${i.mileage || '—'}</td>
-                            <td>${i.fuel_level || '—'}</td>
-                            <td>${i.exterior_damage ? '⚠️ Yes' : '✓ No'}${i.exterior_damage_notes ? '<br><small>' + i.exterior_damage_notes + '</small>' : ''}</td>
-                            <td>${i.radio_present ? '✓' : '❌'}</td>
-                            <td>${i.laptop_present ? '✓' : '❌'}</td>
-                            <td>${i.lights_working ? '✓' : '❌'}</td>
-                            <td style="color: ${i.overall_status === 'Pass' ? '#4CAF50' : i.overall_status === 'Fail' ? '#f44336' : '#FF9800'}">
-                                <strong>${i.overall_status}</strong>
-                            </td>
-                            <td>${i.notes || '—'}</td>
-                        </tr>
-                    `).join('');
+                    if (currentInspectionType === 'cleanliness') {
+                        tbody.innerHTML = data.map(i => {
+                            const wipedItems = [
+                                i.wiped_dashboard ? 'Dashboard' : '',
+                                i.wiped_center_console ? 'Console' : '',
+                                i.wiped_windows ? 'Windows' : '',
+                                i.wiped_interior_doors ? 'Doors' : '',
+                                i.wiped_backseats ? 'Backseats' : '',
+                                i.wiped_keyboard_mdc ? 'MDC' : ''
+                            ].filter(Boolean).join(', ') || 'None';
+                            return `<tr style="cursor:pointer;" onclick="viewInspection('cleanliness', ${i.id})">
+                                <td>${i.inspected_at}</td>
+                                <td>${i.vehicle_name}</td>
+                                <td>${i.inspector}</td>
+                                <td>${i.exterior_clean ? '✅' : '<span style="color:red">❌</span>'}</td>
+                                <td>${i.interior_vacuumed ? '✅' : '<span style="color:red">❌</span>'}</td>
+                                <td>${wipedItems}</td>
+                                <td>${i.comments || '—'}</td>
+                            </tr>`;
+                        }).join('');
+                    } else {
+                        tbody.innerHTML = data.map(i => {
+                            const issues = i.issues_count || 0;
+                            return `<tr style="cursor:pointer;" onclick="viewInspection('quarterly', ${i.id})">
+                                <td>${i.inspected_at}</td>
+                                <td>${i.vehicle_name}</td>
+                                <td>${i.inspector}</td>
+                                <td style="color: ${issues > 0 ? 'red' : 'green'}">${issues > 0 ? '⚠️ ' + issues + ' issue(s)' : '✅ All good'}</td>
+                                <td>${i.comments || '—'}</td>
+                            </tr>`;
+                        }).join('');
+                    }
                 });
         }
 
@@ -939,12 +983,16 @@
             const startDate = document.getElementById('inspectionStartDate').value;
             const endDate = document.getElementById('inspectionEndDate').value;
             
-            let url = '/admin/export/inspections?';
+            let url = `/admin/export/inspections?type=${currentInspectionType}&`;
             if (fobId) url += `fob_id=${fobId}&`;
             if (startDate) url += `start_date=${startDate}&`;
             if (endDate) url += `end_date=${endDate}&`;
             
             window.location.href = url;
+        }
+
+        function viewInspection(type, id) {
+            window.open(`/admin/inspection/${type}/${id}`, '_blank');
         }
 
         function filterToday() {

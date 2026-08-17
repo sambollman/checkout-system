@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Monthly Cleanliness Check</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f0f0f0; }
+        .container { background: white; padding: 25px; border-radius: 12px; max-width: 600px; margin: 0 auto; }
+        h1 { color: #2196F3; font-size: 22px; margin-bottom: 5px; }
+        h2 { color: #333; font-size: 18px; margin-top: 0; }
+        .info-box { background: #e3f2fd; padding: 10px 15px; border-radius: 5px; border-left: 4px solid #2196F3; margin-bottom: 20px; font-size: 14px; color: #555; }
+        .section { margin: 20px 0; border-top: 2px solid #eee; padding-top: 15px; }
+        .section-title { font-weight: bold; font-size: 16px; color: #333; margin-bottom: 10px; }
+        .check-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f5f5f5; }
+        .check-item:last-child { border-bottom: none; }
+        .check-item input[type="checkbox"] { width: 24px; height: 24px; cursor: pointer; flex-shrink: 0; }
+        .check-item label { font-size: 16px; cursor: pointer; }
+        .yes-no { display: flex; gap: 15px; margin-top: 8px; }
+        .yn-btn { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 6px; background: white; font-size: 16px; cursor: pointer; text-align: center; }
+        .yn-btn.yes.selected { background: #4CAF50; color: white; border-color: #4CAF50; }
+        .yn-btn.no.selected { background: #f44336; color: white; border-color: #f44336; }
+        label.field-label { display: block; font-weight: bold; margin-top: 15px; font-size: 16px; }
+        textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; height: 80px; box-sizing: border-box; margin-top: 8px; }
+        .submit-btn { width: 100%; padding: 15px; background: #2196F3; color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; margin-top: 25px; }
+        input[type="hidden"] {}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Monthly Cleanliness</h1>
+        <h2>{{ fob.vehicle_name }}</h2>
+        
+        <div class="info-box">
+            Inspector: <strong>{{ inspector }}</strong><br>
+            Date: <strong id="currentDate"></strong>
+        </div>
+
+        <form method="POST">
+            <div class="section">
+                <div class="section-title">Exterior</div>
+                <label class="field-label">Exterior Clean?</label>
+                <div class="yes-no">
+                    <div class="yn-btn yes" onclick="selectYN(this, 'exterior_clean', 1)">✅ Yes</div>
+                    <div class="yn-btn no" onclick="selectYN(this, 'exterior_clean', 0)">❌ No</div>
+                </div>
+                <input type="hidden" name="exterior_clean" id="exterior_clean" value="">
+            </div>
+
+            <div class="section">
+                <div class="section-title">Interior</div>
+                <label class="field-label">Interior Vacuumed & Clear of Debris?</label>
+                <div class="yes-no">
+                    <div class="yn-btn yes" onclick="selectYN(this, 'interior_vacuumed', 1)">✅ Yes</div>
+                    <div class="yn-btn no" onclick="selectYN(this, 'interior_vacuumed', 0)">❌ No</div>
+                </div>
+                <input type="hidden" name="interior_vacuumed" id="interior_vacuumed" value="">
+            </div>
+
+            <div class="section">
+                <div class="section-title">Interior Wiped Down & Clean (Check All That Apply)</div>
+                <div class="check-item">
+                    <input type="checkbox" name="wiped_dashboard" value="1" id="wiped_dashboard">
+                    <label for="wiped_dashboard">Dashboard</label>
+                </div>
+                <div class="check-item">
+                    <input type="checkbox" name="wiped_center_console" value="1" id="wiped_center_console">
+                    <label for="wiped_center_console">Center Console</label>
+                </div>
+                <div class="check-item">
+                    <input type="checkbox" name="wiped_windows" value="1" id="wiped_windows">
+                    <label for="wiped_windows">Windows</label>
+                </div>
+                <div class="check-item">
+                    <input type="checkbox" name="wiped_interior_doors" value="1" id="wiped_interior_doors">
+                    <label for="wiped_interior_doors">Interior Doors</label>
+                </div>
+                <div class="check-item">
+                    <input type="checkbox" name="wiped_backseats" value="1" id="wiped_backseats">
+                    <label for="wiped_backseats">Backseats</label>
+                </div>
+                <div class="check-item">
+                    <input type="checkbox" name="wiped_keyboard_mdc" value="1" id="wiped_keyboard_mdc">
+                    <label for="wiped_keyboard_mdc">Keyboard/MDC</label>
+                </div>
+            </div>
+
+            <div class="section">
+                <label class="field-label">Comments:</label>
+                <textarea name="comments" placeholder="Any additional comments..."></textarea>
+            </div>
+
+            <button type="submit" class="submit-btn">Submit Cleanliness Check</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById("currentDate").textContent = new Date().toLocaleDateString("en-US", {
+            weekday: "long", year: "numeric", month: "long", day: "numeric"
+        });
+
+        function selectYN(btn, field, value) {
+            const parent = btn.parentElement;
+            parent.querySelectorAll(".yn-btn").forEach(b => b.classList.remove("selected"));
+            btn.classList.add("selected");
+            document.getElementById(field).value = value;
+        }
+    </script>
+</body>
+</html>
