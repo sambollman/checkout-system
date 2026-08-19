@@ -490,35 +490,46 @@
                 {% endif %}
             </td>
              <td>
-                <a href="/admin/fob/edit/{{ fob.id }}" class="btn btn-success">Edit</a>
-                <a href="/admin/fob/replace/{{ fob.id }}" class="btn" style="background: #FF9800; color: white;">Replace Fob</a>
+                <!-- Primary action buttons -->
                 <a href="/admin/fob/reserve/{{ fob.id }}" class="btn" style="background: #2196F3; color: white;">Reserve</a>
-                <a href="/admin/fob/barcode/{{ fob.id }}" class="btn" style="background: #9C27B0; color: white;">Barcode</a>
-                {% if fob.category in ['Squad Cars', 'Specialized Services Vehicles', 'CID Vehicles', 'Other Vehicles', 'Pool Cars', 'Admin Cars'] %}
-                    <a href="/admin/fob/inspection_qr/{{ fob.id }}" class="btn" style="background: #00BCD4; color: white;">Inspection QR</a>
-                {% endif %}
                 {% if fob.note %}
                     <a href="/admin/fob/note/edit/{{ fob.id }}" class="btn" style="background: #FFC107; color: black;">Edit Note</a>
-                    {% if fob.note.expires_at %}
-                        <a href="/admin/fob/note/expire/{{ fob.id }}" class="btn" style="background: #FF9800; color: white;" onclick="return confirm('Expire this note now?')">Expire Now</a>
-                    {% endif %}
-                    <a href="/admin/fob/note/delete/{{ fob.id }}" class="btn btn-danger" onclick="return confirm('Delete note?')">Delete Note</a>
                 {% else %}
                     <a href="/admin/fob/note/add/{{ fob.id }}" class="btn" style="background: #FFC107; color: black;">Add Note</a>
                 {% endif %}
                 {% if fob.category in ['Squad Cars', 'Specialized Services Vehicles', 'CID Vehicles', 'Other Vehicles', 'Pool Cars', 'Admin Cars'] %}
                     <a href="/admin/fob/barns_transfer/{{ fob.id }}#fobs" class="btn" style="background: #795548; color: white;" onclick="return confirm('Transfer to The Barns?')">Barns Transfer</a>
+                    <a href="/inspect/{{ fob.id }}" class="btn" style="background: #009688; color: white;">Inspect</a>
                 {% endif %}
-                {% if fob.is_available %}
-                    <a href="/admin/fob/mark_unavailable/{{ fob.id }}#fobs" class="btn" style="background: #9E9E9E; color: white;" onclick="return confirm('Mark as unavailable?')">Mark Unavailable</a>
-                {% else %}
-                    <a href="/admin/fob/mark_available/{{ fob.id }}#fobs" class="btn btn-success" onclick="return confirm('Mark as available?')">Mark Available</a>
-                {% endif %}
-                {% if fob.is_active %}
-                    <a href="/admin/fob/deactivate/{{ fob.id }}#fobs" class="btn btn-danger">Deactivate</a>
-                {% else %}
-                    <a href="/admin/fob/activate/{{ fob.id }}#fobs" class="btn btn-success">Activate</a>
-                {% endif %}
+
+                <!-- More dropdown -->
+                <div style="display: inline-block; position: relative;">
+                    <button onclick="toggleDropdown('dropdown-{{ fob.id }}')" class="btn" style="background: #555; color: white;">More ▾</button>
+                    <div id="dropdown-{{ fob.id }}" style="display:none; position:absolute; right:0; background:white; border:1px solid #ddd; border-radius:4px; z-index:100; min-width:160px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                        <a href="/admin/fob/edit/{{ fob.id }}" style="display:block; padding:8px 12px; text-decoration:none; color:#333; border-bottom:1px solid #eee;">✏️ Edit</a>
+                        <a href="/admin/fob/replace/{{ fob.id }}" style="display:block; padding:8px 12px; text-decoration:none; color:#333; border-bottom:1px solid #eee;">🔄 Replace Fob</a>
+                        <a href="/admin/fob/barcode/{{ fob.id }}" style="display:block; padding:8px 12px; text-decoration:none; color:#333; border-bottom:1px solid #eee;">📷 Barcode</a>
+                        {% if fob.category in ['Squad Cars', 'Specialized Services Vehicles', 'CID Vehicles', 'Other Vehicles', 'Pool Cars', 'Admin Cars'] %}
+                            <a href="/admin/fob/inspection_qr/{{ fob.id }}" style="display:block; padding:8px 12px; text-decoration:none; color:#333; border-bottom:1px solid #eee;">🔍 Inspection QR</a>
+                        {% endif %}
+                        {% if fob.note %}
+                            {% if fob.note.expires_at %}
+                                <a href="/admin/fob/note/expire/{{ fob.id }}" style="display:block; padding:8px 12px; text-decoration:none; color:#FF9800; border-bottom:1px solid #eee;" onclick="return confirm('Expire this note now?')">⏰ Expire Note Now</a>
+                            {% endif %}
+                            <a href="/admin/fob/note/delete/{{ fob.id }}" style="display:block; padding:8px 12px; text-decoration:none; color:#f44336; border-bottom:1px solid #eee;" onclick="return confirm('Delete note?')">🗑️ Delete Note</a>
+                        {% endif %}
+                        {% if fob.is_available %}
+                            <a href="/admin/fob/mark_unavailable/{{ fob.id }}#fobs" style="display:block; padding:8px 12px; text-decoration:none; color:#9E9E9E; border-bottom:1px solid #eee;" onclick="return confirm('Mark as unavailable?')">🚫 Mark Unavailable</a>
+                        {% else %}
+                            <a href="/admin/fob/mark_available/{{ fob.id }}#fobs" style="display:block; padding:8px 12px; text-decoration:none; color:#4CAF50; border-bottom:1px solid #eee;" onclick="return confirm('Mark as available?')">✅ Mark Available</a>
+                        {% endif %}
+                        {% if fob.is_active %}
+                            <a href="/admin/fob/deactivate/{{ fob.id }}#fobs" style="display:block; padding:8px 12px; text-decoration:none; color:#f44336;" onclick="return confirm('Deactivate this fob?')">⛔ Deactivate</a>
+                        {% else %}
+                            <a href="/admin/fob/activate/{{ fob.id }}#fobs" style="display:block; padding:8px 12px; text-decoration:none; color:#4CAF50;">✅ Activate</a>
+                        {% endif %}
+                    </div>
+                </div>
             </td>
         </tr>
         {% endfor %}
@@ -827,6 +838,22 @@
         function hideAddUserForm() {
             document.getElementById('addUserForm').style.display = 'none';
         }
+        function toggleDropdown(id) {
+            // Close all other dropdowns first
+            document.querySelectorAll('[id^="dropdown-"]').forEach(d => {
+                if (d.id !== id) d.style.display = 'none';
+            });
+            const el = document.getElementById(id);
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('[id^="dropdown-"]') && !e.target.textContent.includes('More')) {
+                document.querySelectorAll('[id^="dropdown-"]').forEach(d => d.style.display = 'none');
+            }
+        });
+
         function showAddFobForm() {
             document.getElementById('addFobForm').style.display = 'block';
         }
