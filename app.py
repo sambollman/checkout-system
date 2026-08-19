@@ -1314,6 +1314,16 @@ def inspect_cleanliness(fob_id):
                 inspection_id=inspection_id
             )
         
+        # Mark any pending assignments as completed
+        conn = get_db()
+        conn.execute('''
+            UPDATE inspection_assignments 
+            SET completed_at = ?, completed_inspection_id = ?
+            WHERE fob_id = ? AND inspection_type = ? AND completed_at IS NULL
+        ''', (datetime.now(chicago_tz).isoformat(), inspection_id, fob_id, 'cleanliness'))
+        conn.commit()
+        conn.close()
+        
         return render_template('inspection_success.html', vehicle_name=fob['vehicle_name'], inspection_type='Monthly Cleanliness')
 
     conn.close()
@@ -1448,6 +1458,16 @@ def inspect_quarterly(fob_id):
                 fob_id=fob_id,
                 inspection_id=inspection_id
             )
+        
+        # Mark any pending assignments as completed
+        conn2 = get_db()
+        conn2.execute('''
+            UPDATE inspection_assignments 
+            SET completed_at = ?, completed_inspection_id = ?
+            WHERE fob_id = ? AND inspection_type = ? AND completed_at IS NULL
+        ''', (datetime.now(chicago_tz).isoformat(), inspection_id, fob_id, 'quarterly'))
+        conn2.commit()
+        conn2.close()
         
         return render_template('inspection_success.html', vehicle_name=fob['vehicle_name'], inspection_type='Quarterly Inventory')
 
