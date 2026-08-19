@@ -13,7 +13,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy only server application files (kiosk files excluded via .dockerignore)
-COPY app.py database.py ./
+COPY app.py database.py email_utils.py ./
 COPY templates/ ./templates/
 
 # Switch to non-root user

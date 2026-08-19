@@ -249,6 +249,21 @@ def run_migrations():
                 FOREIGN KEY (fob_id) REFERENCES key_fobs (id)
             )
         '''),
+        ('009_create_inspection_assignments', '''
+            CREATE TABLE IF NOT EXISTS inspection_assignments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fob_id INTEGER NOT NULL,
+                inspection_type TEXT NOT NULL,
+                assigned_to TEXT NOT NULL,
+                assigned_by TEXT NOT NULL,
+                assigned_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                due_date TEXT NOT NULL,
+                completed_at TEXT,
+                completed_inspection_id INTEGER,
+                reminder_sent INTEGER DEFAULT 0,
+                FOREIGN KEY (fob_id) REFERENCES key_fobs (id)
+            )
+        '''),
     ]
     
     for name, sql in migrations:

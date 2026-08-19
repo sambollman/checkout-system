@@ -500,6 +500,7 @@
                 {% if fob.category in ['Squad Cars', 'Specialized Services Vehicles', 'CID Vehicles', 'Other Vehicles', 'Pool Cars', 'Admin Cars'] %}
                     <a href="/admin/fob/barns_transfer/{{ fob.id }}#fobs" class="btn" style="background: #795548; color: white;" onclick="return confirm('Transfer to The Barns?')">Barns Transfer</a>
                     <a href="/inspect/{{ fob.id }}" class="btn" style="background: #009688; color: white;">Inspect</a>
+                    <a href="/admin/inspection/assign/{{ fob.id }}" class="btn" style="background: #673AB7; color: white;">Assign Inspection</a>
                 {% endif %}
 
                 <!-- More dropdown -->
@@ -778,13 +779,17 @@
             🧹 Monthly Cleanliness
         </button>
         <button onclick="switchInspectionTab('quarterly')" id="tab-quarterly"
-            style="padding: 8px 20px; border: none; background: #ddd; color: #333; cursor: pointer; font-size: 14px; border-radius: 4px 4px 0 0;">
+            style="padding: 8px 20px; border: none; background: #ddd; color: #333; cursor: pointer; font-size: 14px; border-radius: 4px 4px 0 0; margin-right: 5px;">
             📋 Quarterly Inventory
+        </button>
+        <button onclick="switchInspectionTab('assignments')" id="tab-assignments"
+            style="padding: 8px 20px; border: none; background: #ddd; color: #333; cursor: pointer; font-size: 14px; border-radius: 4px 4px 0 0;">
+            📌 Assignments
         </button>
     </div>
 
     <!-- Filters -->
-    <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;">
+    <div id="inspectionFilters" style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;">
         <div>
             <label style="display: block; font-weight: bold; margin-bottom: 5px;">Vehicle:</label>
             <select id="inspectionFobFilter" style="padding: 5px;">
@@ -808,7 +813,29 @@
         <button onclick="exportInspections()" class="btn" style="background: #FF9800; color: white;">Export CSV</button>
     </div>
 
-    <div style="overflow-x: auto;">
+    <!-- Assignments section (hidden by default) -->
+    <div id="assignmentsSection" style="display: none;">
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Vehicle</th>
+                        <th>Type</th>
+                        <th>Assigned To</th>
+                        <th>Assigned By</th>
+                        <th>Assigned At</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="assignmentsBody">
+                    <tr><td colspan="7" style="text-align: center; color: #999;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="inspectionsTableSection" style="overflow-x: auto;">
         <table id="inspectionsTable">
             <thead>
                 <tr id="inspectionsHeader">
@@ -936,10 +963,24 @@
 
         function switchInspectionTab(type) {
             currentInspectionType = type;
+            
+            // Update tab styles
             document.getElementById('tab-cleanliness').style.background = type === 'cleanliness' ? '#2196F3' : '#ddd';
             document.getElementById('tab-cleanliness').style.color = type === 'cleanliness' ? 'white' : '#333';
             document.getElementById('tab-quarterly').style.background = type === 'quarterly' ? '#4CAF50' : '#ddd';
             document.getElementById('tab-quarterly').style.color = type === 'quarterly' ? 'white' : '#333';
+            document.getElementById('tab-assignments').style.background = type === 'assignments' ? '#673AB7' : '#ddd';
+            document.getElementById('tab-assignments').style.color = type === 'assignments' ? 'white' : '#333';
+            
+            // Show/hide filter section
+            document.getElementById('inspectionFilters').style.display = type === 'assignments' ? 'none' : 'flex';
+            document.getElementById('assignmentsSection').style.display = type === 'assignments' ? 'block' : 'none';
+            document.getElementById('inspectionsTableSection').style.display = type === 'assignments' ? 'none' : 'block';
+            
+            if (type === 'assignments') {
+                loadAssignments();
+                return;
+            }
             
             // Update table headers
             const header = document.getElementById('inspectionsHeader');
@@ -950,6 +991,34 @@
             }
             
             document.getElementById('inspectionsBody').innerHTML = '<tr><td colspan="7" style="text-align: center; color: #999;">Use filters above to load inspections</td></tr>';
+        }
+
+        function loadAssignments() {
+            fetch('/admin/api/assignments')
+                .then(r => r.json())
+                .then(data => {
+                    const tbody = document.getElementById('assignmentsBody');
+                    if (data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #999;">No assignments found</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = data.map(a => {
+                        const status = a.completed_at 
+                            ? `<span style="color: green;">✅ Completed ${a.completed_at}</span>`
+                            : new Date(a.due_date) < new Date() 
+                                ? `<span style="color: red;">⚠️ Overdue (Due: ${a.due_date})</span>`
+                                : `<span style="color: #FF9800;">⏳ Pending (Due: ${a.due_date})</span>`;
+                        return `<tr>
+                            <td>${a.vehicle_name}</td>
+                            <td>${a.inspection_type === 'cleanliness' ? '🧹 Monthly Cleanliness' : '📋 Quarterly Inventory'}</td>
+                            <td>${a.assigned_to}</td>
+                            <td>${a.assigned_by}</td>
+                            <td>${a.assigned_at}</td>
+                            <td>${status}</td>
+                            <td><a href="/admin/assignment/delete/${a.id}" class="btn btn-danger btn-sm" onclick="return confirm('Delete this assignment?')" style="font-size:12px; padding:3px 8px;">Delete</a></td>
+                        </tr>`;
+                    }).join('');
+                });
         }
 
         function filterInspections() {

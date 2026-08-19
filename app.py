@@ -1261,6 +1261,16 @@ def inspect_cleanliness(fob_id):
 
     if request.method == 'POST':
         chicago_tz = pytz.timezone('America/Chicago')
+        exterior_clean = 1 if request.form.get('exterior_clean') == '1' else 0
+        interior_vacuumed = 1 if request.form.get('interior_vacuumed') == '1' else 0
+        wiped_dashboard = 1 if request.form.get('wiped_dashboard') else 0
+        wiped_center_console = 1 if request.form.get('wiped_center_console') else 0
+        wiped_windows = 1 if request.form.get('wiped_windows') else 0
+        wiped_interior_doors = 1 if request.form.get('wiped_interior_doors') else 0
+        wiped_backseats = 1 if request.form.get('wiped_backseats') else 0
+        wiped_keyboard_mdc = 1 if request.form.get('wiped_keyboard_mdc') else 0
+        comments = request.form.get('comments')
+        
         conn.execute('''
             INSERT INTO cleanliness_inspections (
                 fob_id, inspector, inspected_at,
@@ -1271,18 +1281,39 @@ def inspect_cleanliness(fob_id):
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             fob_id, username, datetime.now(chicago_tz).isoformat(),
-            1 if request.form.get('exterior_clean') == '1' else 0,
-            1 if request.form.get('interior_vacuumed') == '1' else 0,
-            1 if request.form.get('wiped_dashboard') else 0,
-            1 if request.form.get('wiped_center_console') else 0,
-            1 if request.form.get('wiped_windows') else 0,
-            1 if request.form.get('wiped_interior_doors') else 0,
-            1 if request.form.get('wiped_backseats') else 0,
-            1 if request.form.get('wiped_keyboard_mdc') else 0,
-            request.form.get('comments')
+            exterior_clean, interior_vacuumed,
+            wiped_dashboard, wiped_center_console, wiped_windows,
+            wiped_interior_doors, wiped_backseats, wiped_keyboard_mdc,
+            comments
         ))
         conn.commit()
+        inspection_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
         conn.close()
+        
+        # Check for issues and email quartermaster
+        issues = []
+        if not exterior_clean: issues.append("Exterior not clean")
+        if not interior_vacuumed: issues.append("Interior not vacuumed")
+        if not wiped_dashboard: issues.append("Dashboard not wiped")
+        if not wiped_center_console: issues.append("Center console not wiped")
+        if not wiped_windows: issues.append("Windows not wiped")
+        if not wiped_interior_doors: issues.append("Interior doors not wiped")
+        if not wiped_backseats: issues.append("Backseats not wiped")
+        if not wiped_keyboard_mdc: issues.append("Keyboard/MDC not wiped")
+        
+        if issues:
+            from email_utils import send_inspection_issues_to_quartermaster
+            send_inspection_issues_to_quartermaster(
+                vehicle_name=fob['vehicle_name'],
+                inspection_type='cleanliness',
+                inspector=username,
+                inspected_at=datetime.now(chicago_tz).strftime('%B %d, %Y at %I:%M %p'),
+                issues=issues,
+                comments=comments,
+                fob_id=fob_id,
+                inspection_id=inspection_id
+            )
+        
         return render_template('inspection_success.html', vehicle_name=fob['vehicle_name'], inspection_type='Monthly Cleanliness')
 
     conn.close()
@@ -1340,11 +1371,197 @@ def inspect_quarterly(fob_id):
         
         conn.execute(f'INSERT INTO quarterly_inspections ({field_names}) VALUES ({placeholders})', values)
         conn.commit()
+        inspection_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
         conn.close()
+        
+        # Build field values dict to check for issues
+        field_values = {}
+        for i, field in enumerate(fields):
+            field_values[field] = values[i + 3]  # offset by fob_id, inspector, inspected_at
+        
+        field_labels = {
+            'registration_current': 'Vehicle registration current and properly displayed',
+            'tires_inflated': 'Tires properly inflated',
+            'compartment_clean': 'Passenger compartment clean',
+            'light_bar_working': 'Light bar working properly',
+            'mdc_working': 'MDC clean and working properly',
+            'radio_working': 'Police radio working properly',
+            'radar_working': 'RADAR working properly',
+            'scanner_working': 'Scanner working properly',
+            'axon_camera_working': 'AXON Fleet Camera working properly',
+            'spotlight_working': 'Spotlight working properly',
+            'seatbelts_working': 'Seat belts working properly',
+            'headlights_working': 'Headlights, tail lights, and turn signals working properly',
+            'trunk_clean': 'Trunk clean and organized',
+            'spare_tire_inflated': 'Spare tire properly inflated',
+            'ar15_present': 'AR-15 Rifle present',
+            'backpack_present': 'Backpack with helmet/plates/mags present',
+            'phone_charger_present': 'Cell Phone Charger present',
+            'evidence_bag_present': 'Clear evidence bag present',
+            'aed_present': 'AED present',
+            'tuning_forks_present': 'Tuning Forks present',
+            'ice_scraper_present': 'Ice Scraper present',
+            'firstaid_large_gloves': 'First Aid: Large Gloves',
+            'firstaid_cloth_tape': 'First Aid: Cloth Tape',
+            'firstaid_trauma_shears': 'First Aid: Trauma Shears',
+            'firstaid_bandaids': 'First Aid: Bandaids',
+            'firstaid_gauze': 'First Aid: 4x4 Gauze',
+            'firstaid_alcohol_prep': 'First Aid: Alcohol Prep Pads',
+            'firstaid_tourniquets': 'First Aid: Tourniquets',
+            'firstaid_chest_seals': 'First Aid: Chest Seals',
+            'firstaid_sroll_gauze': 'First Aid: S-Roll Gauze',
+            'bio_hazard_kit': 'BIO Hazard Kit present',
+            'printer_paper': 'Printer Paper present',
+            'tape_measure': 'Tape Measure present',
+            'emergency_blanket': 'Emergency Blanket present',
+            'fire_extinguisher': 'Fire Extinguisher present',
+            'traffic_vest': 'Traffic Vest present',
+            'ripp_restraint': 'RIPP Restraint present',
+            'red_cone': 'Red Cone present',
+            'barrier_tape': 'Yellow Barrier Tape present',
+            'pet_carrier': 'Pet Carrier present',
+            'red_paint': 'Red Paint present',
+            'code100_mask': 'Code 100 Mask Kit present',
+            'riot_baton': 'Riot Baton present',
+            'sani_wipes': 'Sani Wipes present',
+            'sharps_container': 'Sharps Container present',
+            'stop_sticks': 'Stop Sticks present',
+            'water_rescue_bag': 'Water Rescue Bag present',
+            'window_punch': 'Window Punch present',
+            'spit_hood': 'Spit Hood present',
+            'citation_book': 'Citation/Warning Book present',
+            'parking_ticket_book': 'Parking Ticket Book present',
+        }
+        
+        issues = [label for field, label in field_labels.items() if field_values.get(field) == 0]
+        comments = request.form.get('comments')
+        
+        if issues:
+            from email_utils import send_inspection_issues_to_quartermaster
+            send_inspection_issues_to_quartermaster(
+                vehicle_name=fob['vehicle_name'],
+                inspection_type='quarterly',
+                inspector=username,
+                inspected_at=datetime.now(chicago_tz).strftime('%B %d, %Y at %I:%M %p'),
+                issues=issues,
+                comments=comments,
+                fob_id=fob_id,
+                inspection_id=inspection_id
+            )
+        
         return render_template('inspection_success.html', vehicle_name=fob['vehicle_name'], inspection_type='Quarterly Inventory')
 
     conn.close()
     return render_template('quarterly_form.html', fob=fob, inspector=username)
+
+@app.route('/admin/api/assignments')
+def api_assignments():
+    """Get all inspection assignments as JSON"""
+    if not session.get('admin'):
+        return {'error': 'Unauthorized'}, 401
+    
+    chicago_tz = pytz.timezone('America/Chicago')
+    conn = get_db()
+    rows = conn.execute('''
+        SELECT ia.*, kf.vehicle_name
+        FROM inspection_assignments ia
+        JOIN key_fobs kf ON ia.fob_id = kf.id
+        ORDER BY ia.completed_at IS NOT NULL, ia.due_date ASC
+    ''').fetchall()
+    conn.close()
+    
+    result = []
+    for row in rows:
+        r = dict(row)
+        if r['assigned_at']:
+            try:
+                dt = datetime.fromisoformat(r['assigned_at'])
+                if dt.tzinfo is not None:
+                    dt = dt.astimezone(chicago_tz)
+                r['assigned_at'] = dt.strftime('%b %d, %Y')
+            except:
+                pass
+        if r['completed_at']:
+            try:
+                dt = datetime.fromisoformat(r['completed_at'])
+                if dt.tzinfo is not None:
+                    dt = dt.astimezone(chicago_tz)
+                r['completed_at'] = dt.strftime('%b %d, %Y')
+            except:
+                pass
+        result.append(r)
+    
+    return result
+
+@app.route('/admin/assignment/delete/<int:assignment_id>')
+def delete_inspection_assignment(assignment_id):
+    """Delete an inspection assignment"""
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    
+    conn = get_db()
+    conn.execute('DELETE FROM inspection_assignments WHERE id = ?', (assignment_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('admin_dashboard') + '#inspections')
+
+@app.route('/admin/inspection/assign/<int:fob_id>', methods=['GET', 'POST'])
+def assign_inspection(fob_id):
+    """Assign an inspection to a supervisor"""
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    
+    from email_utils import send_inspection_assignment
+    
+    assigned_by = session.get('username', 'Admin')
+    chicago_tz = pytz.timezone('America/Chicago')
+    
+    conn = get_db()
+    fob = conn.execute('SELECT * FROM key_fobs WHERE id = ?', (fob_id,)).fetchone()
+    
+    if not fob:
+        conn.close()
+        return "Vehicle not found", 404
+    
+    if request.method == 'POST':
+        inspection_type = request.form.get('inspection_type')
+        assigned_to = request.form.get('assigned_to')
+        due_date = request.form.get('due_date')
+        
+        conn.execute('''
+            INSERT INTO inspection_assignments 
+            (fob_id, inspection_type, assigned_to, assigned_by, assigned_at, due_date)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (fob_id, inspection_type, assigned_to, assigned_by, 
+               datetime.now(chicago_tz).isoformat(), due_date))
+        conn.commit()
+        conn.close()
+        
+        # Send email to assigned supervisor
+        send_inspection_assignment(
+            assigned_to_email=assigned_to,
+            assigned_by=assigned_by,
+            vehicle_name=fob['vehicle_name'],
+            inspection_type=inspection_type,
+            due_date=due_date,
+            fob_id=fob_id
+        )
+        
+        return redirect(url_for('admin_dashboard') + '#fobs')
+    
+    # Get list of admin users for dropdown
+    admins = conn.execute('SELECT DISTINCT username FROM admin_users WHERE username != ? ORDER BY username', 
+                         (assigned_by,)).fetchall()
+    
+    # Also get OKTA admins from recent sessions if available
+    today = datetime.now(chicago_tz).strftime('%Y-%m-%d')
+    conn.close()
+    
+    return render_template('assign_inspection.html', 
+                          fob=fob, 
+                          assigned_by=assigned_by,
+                          admins=admins,
+                          today=today)
 
 @app.route('/admin')
 def admin_dashboard():
@@ -2922,6 +3139,52 @@ def delete_admin_user(admin_id):
 
 # Run migrations on startup
 run_migrations()
+
+# Start reminder scheduler
+import threading
+def check_reminders():
+    """Check for inspections due in 7 days and send reminders"""
+    import time
+    from email_utils import send_inspection_reminder
+    
+    while True:
+        try:
+            chicago_tz = pytz.timezone('America/Chicago')
+            now = datetime.now(chicago_tz)
+            reminder_date = (now + timedelta(days=7)).strftime('%Y-%m-%d')
+            
+            conn = get_db()
+            # Find assignments due in 7 days that haven't been completed or reminded
+            assignments = conn.execute('''
+                SELECT ia.*, kf.vehicle_name
+                FROM inspection_assignments ia
+                JOIN key_fobs kf ON ia.fob_id = kf.id
+                WHERE date(ia.due_date) = ?
+                AND ia.completed_at IS NULL
+                AND ia.reminder_sent = 0
+            ''', (reminder_date,)).fetchall()
+            
+            for assignment in assignments:
+                send_inspection_reminder(
+                    assigned_to_email=assignment['assigned_to'],
+                    vehicle_name=assignment['vehicle_name'],
+                    inspection_type=assignment['inspection_type'],
+                    due_date=assignment['due_date'],
+                    fob_id=assignment['fob_id']
+                )
+                conn.execute('UPDATE inspection_assignments SET reminder_sent = 1 WHERE id = ?', 
+                           (assignment['id'],))
+                conn.commit()
+            
+            conn.close()
+        except Exception as e:
+            print(f"Reminder check error: {e}")
+        
+        # Check once per day (86400 seconds)
+        time.sleep(86400)
+
+reminder_thread = threading.Thread(target=check_reminders, daemon=True)
+reminder_thread.start()
 
 if __name__ == '__main__':
 # Get debug settings from environment (default to False for production safety)

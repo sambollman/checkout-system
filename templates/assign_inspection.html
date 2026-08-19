@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Assign Inspection</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f0f0f0; }
+        .form-container { background: white; padding: 30px; border-radius: 8px; max-width: 500px; margin: 0 auto; }
+        h1 { color: #673AB7; }
+        .info { background: #EDE7F6; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #673AB7; }
+        label { display: block; margin-top: 15px; font-weight: bold; }
+        select, input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
+        button { margin-top: 20px; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .save-btn { background-color: #673AB7; color: white; }
+        .cancel-btn { background-color: #666; color: white; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>📋 Assign Inspection</h1>
+        
+        <div class="info">
+            <strong>Vehicle:</strong> {{ fob.vehicle_name }}<br>
+            <strong>Assigning:</strong> {{ assigned_by }}
+        </div>
+        
+        <form method="POST">
+            <label>Inspection Type:</label>
+            <select name="inspection_type" required>
+                <option value="cleanliness">🧹 Monthly Cleanliness Check</option>
+                <option value="quarterly">📋 Quarterly Inventory</option>
+            </select>
+            
+            <label>Assign To:</label>
+            <select name="assigned_to" required>
+                <option value="">-- Select Supervisor --</option>
+                {% for admin in admins %}
+                    {% if admin.username != assigned_by %}
+                        <option value="{{ admin.username }}">{{ admin.username }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+            
+            <label>Due Date:</label>
+            <input type="date" name="due_date" required min="{{ today }}">
+            
+            <button type="submit" class="save-btn">Assign & Send Email</button>
+            <a href="/admin#fobs"><button type="button" class="cancel-btn">Cancel</button></a>
+        </form>
+    </div>
+</body>
+</html>
