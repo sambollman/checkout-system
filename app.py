@@ -1534,7 +1534,7 @@ def inspect_quarterly(fob_id):
             'barrier_tape': 'Yellow Barrier Tape present',
             'pet_carrier': 'Pet Carrier present',
             'red_paint': 'Red Paint present',
-            'code100_mask': 'Code 100 Mask Kit present',
+            'code100_mask': 'CPR Mask present',
             'riot_baton': 'Riot Baton present',
             'sani_wipes': 'Sani Wipes present',
             'sharps_container': 'Sharps Container present',
@@ -2309,7 +2309,7 @@ def export_inspections():
                         'Bio Hazard Kit', 'Printer Paper', 'Tape Measure',
                         'Emergency Blanket', 'Fire Extinguisher', 'Traffic Vest',
                         'RIPP Restraint', 'Red Cone', 'Barrier Tape', 'Pet Carrier',
-                        'Red Paint', 'Code 100 Mask', 'Riot Baton', 'Sani Wipes',
+                        'Red Paint', 'CPR Mask', 'Riot Baton', 'Sani Wipes',
                         'Sharps Container', 'Stop Sticks', 'Water Rescue Bag',
                         'Window Punch', 'Spit Hood', 'Citation Book', 'Parking Ticket Book',
                         'Comments'])
