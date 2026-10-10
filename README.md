@@ -349,6 +349,19 @@ the cache headers there too.
 > reload on mismatch) before or alongside this change. Cosmetic, not a security
 > issue, but it applies to any route moved behind Okta.
 
+> **`/roster` (squad car assignment wall display).** A read-only page listing
+> every active *Squad Cars* fob with its officer for each of the eight shifts,
+> built from the assignments entered on **Admin → Edit** for each car. It updates
+> live over `/socket.io/` (`roster_update` event) whenever an assignment is added
+> or removed, or a car or officer is renamed, and loads its Socket.IO client from
+> `/static/js/` so it does not depend on a CDN. It is opened in a full-screen
+> browser on the **kiosk computer** at
+> `https://pd-checkout.cityoffargo.com/roster`, so it is served through
+> `location /` and the Okta auth-proxy like any other page on this host; no nginx
+> change is needed. Because it runs unattended 24/7, the Okta session on that
+> browser must stay valid — if it expires, the page drops to the Okta login
+> (the page reloads itself whenever its live connection reconnects).
+
 **2. Display site — `pd-checkout-display.cityoffargo.com`** (anonymous read-only display)
 
 An unattended, read-only dashboard that bypasses Okta. The **entire server

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Squad Car Assignments</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --panel: #161b22;
+            --row-alt: #1b222c;
+            --line: #2d3540;
+            --text: #e6edf3;
+            --muted: #8b949e;
+            --red: #f05252;
+            --red-tint: rgba(240, 82, 82, 0.10);
+            --blue: #4f8ff7;
+            --blue-tint: rgba(79, 143, 247, 0.10);
+            --flash: rgba(250, 204, 21, 0.38);
+        }
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            overflow: hidden;
+        }
+        /* Wall display: hide the mouse pointer after a few idle seconds */
+        html.cursor-idle, html.cursor-idle * { cursor: none !important; }
+        body { display: flex; flex-direction: column; }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.2vh 2vw 1vh;
+            border-bottom: 2px solid var(--line);
+            flex: 0 0 auto;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 3.2vw;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+        .clock { text-align: right; line-height: 1.15; }
+        .clock .time { font-size: 3.6vw; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .clock .date { font-size: 1.7vw; color: var(--muted); }
+
+        #offline {
+            display: none;
+            background: var(--red);
+            color: #fff;
+            text-align: center;
+            font-weight: 700;
+            font-size: 2vw;
+            padding: 0.6vh 1vw;
+            flex: 0 0 auto;
+        }
+        body.disconnected #offline { display: block; }
+
+        main {
+            flex: 1 1 auto;
+            min-height: 0;
+            padding: 0.6vh 1vw 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 16px;           /* overwritten by fitTable() */
+        }
+        col.car { width: 7.5%; }
+        th, td {
+            border: 1px solid var(--line);
+            padding: 0.12em 0.3em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+            line-height: 1.25;
+        }
+        thead th { background: var(--panel); font-weight: 700; }
+        thead tr.group th { font-size: 1.05em; letter-spacing: 0.03em; text-transform: uppercase; }
+        thead tr.sub th { font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.05em; }
+        thead th.red  { color: var(--red);  border-bottom: 3px solid var(--red); }
+        thead th.blue { color: var(--blue); border-bottom: 3px solid var(--blue); }
+
+        tbody tr:nth-child(even) { background: var(--row-alt); }
+        td.car { font-weight: 800; font-size: 1.08em; font-variant-numeric: tabular-nums; background: var(--panel); }
+        td.red  { background-image: linear-gradient(var(--red-tint), var(--red-tint)); }
+        td.blue { background-image: linear-gradient(var(--blue-tint), var(--blue-tint)); }
+        /* thicker divider between shift pairs */
+        td.pair-start, th.pair-start { border-left: 3px solid var(--line); }
+
+        td.changed { animation: flash 60s ease-out; }
+        @keyframes flash {
+            0%, 15% { box-shadow: inset 0 0 0 100vmax var(--flash); }
+            100%    { box-shadow: inset 0 0 0 100vmax transparent; }
+        }
+
+        footer {
+            flex: 0 0 auto;
+            display: flex;
+            justify-content: space-between;
+            color: var(--muted);
+            font-size: 1.4vw;
+            padding: 0.6vh 2vw 0.8vh;
+        }
+        .empty { color: var(--muted); text-align: center; font-size: 2.4vw; padding-top: 20vh; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Squad Car Assignments</h1>
+        <div class="clock">
+            <div class="time" id="clock-time">--:--</div>
+            <div class="date" id="clock-date"></div>
+        </div>
+    </header>
+    <div id="offline">Connection lost &mdash; showing last known roster. Reconnecting&hellip;</div>
+    <main id="main"></main>
+    <footer>
+        <span id="updated"></span>
+        <span id="count"></span>
+    </footer>
+
+    <!-- Served locally (not from the CDN) so the wall display keeps updating even
+         if the monitor's network can't reach the internet. -->
+    <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
+    <script>
+        const TZ = 'America/Chicago';
+        const SHORT = { Days: 'Days', Mids: 'Mids', Evenings: 'Evenings', Nights: 'Nights' };
+        let roster = {{ roster|tojson }};
+        let previous = null;   // cell text from the last render, to flash what changed
+
+        function esc(s) {
+            return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        function render(data, flashChanges) {
+            const main = document.getElementById('main');
+            const shifts = data.shifts;
+            if (!data.cars.length) {
+                main.innerHTML = '<div class="empty">No active squad cars.</div>';
+                previous = {};
+                updateFooter(data);
+                return;
+            }
+
+            // Group header: Days / Mids / Evenings / Nights, each spanning Red + Blue.
+            const groups = [];
+            shifts.forEach(s => {
+                const g = s.split(' ')[0];
+                const last = groups[groups.length - 1];
+                if (last && last.name === g) last.span++; else groups.push({ name: g, span: 1 });
+            });
+
+            let html = '<table><colgroup><col class="car">' + shifts.map(() => '<col>').join('') + '</colgroup><thead>';
+            html += '<tr class="group"><th rowspan="2">Squad</th>' +
+                groups.map(g => `<th class="pair-start" colspan="${g.span}">${esc(SHORT[g.name] || g.name)}</th>`).join('') + '</tr>';
+            html += '<tr class="sub">' + shifts.map((s, i) => {
+                const color = s.endsWith('Red') ? 'red' : 'blue';
+                return `<th class="${color}${i % 2 === 0 ? ' pair-start' : ''}">${color}</th>`;
+            }).join('') + '</tr></thead><tbody>';
+
+            const current = {};
+            data.cars.forEach(car => {
+                html += `<tr><td class="car">${esc(car.label)}</td>`;
+                shifts.forEach((s, i) => {
+                    const names = car.assignments[s] || [];
+                    const text = names.join(' / ');
+                    const key = car.id + '|' + s;
+                    current[key] = text;
+                    const changed = flashChanges && previous && (previous[key] || '') !== text;
+                    const cls = [s.endsWith('Red') ? 'red' : 'blue'];
+                    if (i % 2 === 0) cls.push('pair-start');
+                    if (changed) cls.push('changed');
+                    html += `<td class="${cls.join(' ')}" title="${esc(text)}">${esc(text)}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            main.innerHTML = html;
+            previous = current;
+            fitTable();
+            updateFooter(data);
+        }
+
+        // Pick the largest font size at which every row fits on screen, then
+        // shrink any individual cell whose name is still too wide.
+        function fitTable() {
+            const main = document.getElementById('main');
+            const table = main.querySelector('table');
+            if (!table) return;
+            const avail = main.clientHeight - 4;
+            let lo = 6, hi = 60;
+            while (hi - lo > 0.25) {
+                const mid = (lo + hi) / 2;
+                table.style.fontSize = mid + 'px';
+                if (table.offsetHeight <= avail) lo = mid; else hi = mid;
+            }
+            table.style.fontSize = lo + 'px';
+
+            table.querySelectorAll('tbody td:not(.car)').forEach(td => {
+                td.style.fontSize = '';
+                let size = 100;
+                while (td.scrollWidth > td.clientWidth && size > 60) {
+                    size -= 5;
+                    td.style.fontSize = size + '%';
+                }
+            });
+        }
+
+        function updateFooter(data) {
+            const d = new Date(data.updated_at);
+            document.getElementById('updated').textContent = 'Last updated ' + d.toLocaleString('en-US', {
+                timeZone: TZ, weekday: 'short', month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit', hour12: false
+            });
+            document.getElementById('count').textContent = data.cars.length + ' squad cars';
+        }
+
+        function tick() {
+            const now = new Date();
+            document.getElementById('clock-time').textContent =
+                now.toLocaleTimeString('en-US', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false });
+            document.getElementById('clock-date').textContent =
+                now.toLocaleDateString('en-US', { timeZone: TZ, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+        }
+        // Show the pointer while the mouse moves; hide it after 3 idle seconds.
+        let idleTimer;
+        function wakeCursor() {
+            document.documentElement.classList.remove('cursor-idle');
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => document.documentElement.classList.add('cursor-idle'), 3000);
+        }
+        ['mousemove', 'mousedown', 'touchstart'].forEach(e => document.addEventListener(e, wakeCursor, { passive: true }));
+        wakeCursor();
+
+        tick();
+        setInterval(tick, 1000);
+
+        render(roster, false);
+        let resizeTimer;
+        window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(fitTable, 200); });
+
+        // ---- Live updates ----
+        if (typeof io === 'undefined') {
+            // Socket library failed to load: fall back to reloading every 2 minutes.
+            document.body.classList.add('disconnected');
+            setTimeout(() => location.reload(), 120000);
+            throw new Error('socket.io client not loaded');
+        }
+        const socket = io();
+        let everConnected = false;
+
+        socket.on('connect', () => {
+            document.body.classList.remove('disconnected');
+            if (everConnected) {
+                // Reconnected (network blip or server restart/redeploy): reload so
+                // the page also picks up any new version of this template.
+                location.reload();
+                return;
+            }
+            everConnected = true;
+            socket.emit('request_roster');
+        });
+        socket.on('disconnect', () => document.body.classList.add('disconnected'));
+        socket.on('connect_error', () => document.body.classList.add('disconnected'));
+
+        socket.on('roster_update', data => { roster = data; render(data, true); });
+    </script>
+</body>
+</html>

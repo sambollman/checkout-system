@@ -418,6 +418,109 @@ def get_current_status():
         'active_reservations': formatted_reservations
     }
 
+# ---------------------------------------------------------------------------
+# Squad car roster (wall display)
+# ---------------------------------------------------------------------------
+
+# Column order on the roster, matching the printed sheet. Values must match the
+# shift options in templates/edit_fob.html.
+ROSTER_SHIFTS = [
+    'Days Red', 'Days Blue',
+    'Mids Red', 'Mids Blue',
+    'Evenings Red', 'Evenings Blue',
+    'Nights Red', 'Nights Blue',
+]
+
+
+def get_roster_data():
+    """Build the squad-car roster: one row per active squad car, one column per shift."""
+    import re
+
+    conn = get_db()
+    cars = conn.execute('''
+        SELECT id, vehicle_name
+        FROM key_fobs
+        WHERE is_active = 1 AND category = 'Squad Cars'
+    ''').fetchall()
+    rows = conn.execute('''
+        SELECT va.fob_id, va.shift, u.id AS user_id, u.first_name, u.last_name
+        FROM vehicle_assignments va
+        JOIN users u ON va.user_id = u.id
+        JOIN key_fobs kf ON va.fob_id = kf.id
+        WHERE kf.is_active = 1 AND kf.category = 'Squad Cars'
+        ORDER BY u.last_name, u.first_name
+    ''').fetchall()
+    conn.close()
+
+    # Display names: last name only, like the printed sheet. When two different
+    # people on the roster share a last name, add as much of the first name as
+    # it takes to tell them apart ("Jensen, A" / "Jensen, H").
+    people = {}
+    for r in rows:
+        people[r['user_id']] = ((r['first_name'] or '').strip(), (r['last_name'] or '').strip())
+    by_last = {}
+    for uid, (first, last) in people.items():
+        by_last.setdefault(last.lower(), []).append(uid)
+    display = {}
+    for uids in by_last.values():
+        if len(uids) == 1:
+            first, last = people[uids[0]]
+            display[uids[0]] = last or first
+            continue
+        firsts = [people[u][0] for u in uids]
+        longest = max((len(f) for f in firsts), default=0)
+        n = 1
+        while n < longest and len({f[:n].lower() for f in firsts}) < len(firsts):
+            n += 1
+        for u in uids:
+            first, last = people[u]
+            display[u] = f"{last}, {first[:n]}" if first else last
+
+    grid = {}
+    for r in rows:
+        if r['shift'] in ROSTER_SHIFTS:
+            grid.setdefault(r['fob_id'], {}).setdefault(r['shift'], []).append(display[r['user_id']])
+
+    def car_label(name):
+        # "Squad 38" / "Car #38" -> "38"; anything else is shown as entered.
+        m = re.match(r'^\s*(?:squad|car|unit)?\s*#?\s*(\d+)\s*$', name or '', re.IGNORECASE)
+        return m.group(1) if m else name
+
+    def natural_key(car):
+        return [int(t) if t.isdigit() else t.lower() for t in re.split('([0-9]+)', car['vehicle_name'])]
+
+    chicago_tz = pytz.timezone('America/Chicago')
+    return {
+        'shifts': ROSTER_SHIFTS,
+        'cars': [
+            {
+                'id': car['id'],
+                'label': car_label(car['vehicle_name']),
+                'assignments': {s: grid.get(car['id'], {}).get(s, []) for s in ROSTER_SHIFTS},
+            }
+            for car in sorted(cars, key=natural_key)
+        ],
+        'updated_at': datetime.now(chicago_tz).isoformat(),
+    }
+
+
+def broadcast_roster():
+    """Push the current roster to every connected wall display."""
+    socketio.emit('roster_update', get_roster_data())
+
+
+@app.route('/roster')
+def roster():
+    """Squad car assignment roster for the wall monitor by the keys (read-only)."""
+    return render_template('roster.html', roster=get_roster_data())
+
+
+@socketio.on('request_roster')
+def handle_request_roster():
+    """A display asks for a fresh copy when it connects."""
+    emit('roster_update', get_roster_data())
+
+
 @app.route('/api/status')
 @require_kiosk_auth
 def api_status():
@@ -1891,6 +1994,7 @@ def deactivate_fob(fob_id):
     conn.execute('UPDATE key_fobs SET is_active = 0 WHERE id = ?', (fob_id,))
     conn.commit()
     conn.close()
+    broadcast_roster()
     
     return redirect(url_for('admin_dashboard'))
 
@@ -1904,6 +2008,7 @@ def activate_fob(fob_id):
     conn.execute('UPDATE key_fobs SET is_active = 1 WHERE id = ?', (fob_id,))
     conn.commit()
     conn.close()
+    broadcast_roster()
     
     return redirect(url_for('admin_dashboard'))
 
@@ -2424,6 +2529,7 @@ def edit_user(user_id):
                     (first_name, last_name, user_id))
         conn.commit()
         conn.close()
+        broadcast_roster()
         return redirect(url_for('admin_dashboard') + '#users')
     
     user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
@@ -2450,6 +2556,7 @@ def edit_fob(fob_id):
                     (vehicle_name, category, location, make, model, year, fob_id))
         conn.commit()
         conn.close()
+        broadcast_roster()
         return redirect(url_for('admin_dashboard') + '#fobs')
     
     fob = conn.execute('SELECT * FROM key_fobs WHERE id = ?', (fob_id,)).fetchone()
@@ -2481,6 +2588,7 @@ def add_assignment(fob_id):
         )
         conn.commit()
         conn.close()
+        broadcast_roster()
     
     return redirect(f'/admin/fob/edit/{fob_id}#assignments')
 
@@ -2494,6 +2602,7 @@ def delete_assignment(assignment_id, fob_id):
     conn.execute('DELETE FROM vehicle_assignments WHERE id = ?', (assignment_id,))
     conn.commit()
     conn.close()
+    broadcast_roster()
     
     return redirect(f'/admin/fob/edit/{fob_id}#assignments')
 
