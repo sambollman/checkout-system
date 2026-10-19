@@ -422,6 +422,12 @@ def get_current_status():
 # Squad car roster (wall display)
 # ---------------------------------------------------------------------------
 
+# Vehicle categories on the roster, in display order (section title shown on the page).
+ROSTER_CATEGORIES = [
+    ('Squad Cars', 'Squad Cars'),
+    ('Specialized Services Vehicles', 'Specialized Services'),
+]
+
 # Column order on the roster, matching the printed sheet. Values must match the
 # shift options in templates/edit_fob.html.
 ROSTER_SHIFTS = [
@@ -433,23 +439,26 @@ ROSTER_SHIFTS = [
 
 
 def get_roster_data():
-    """Build the squad-car roster: one row per active squad car, one column per shift."""
+    """Build the vehicle roster: one row per active squad car / specialized services
+    vehicle, one column per shift."""
     import re
 
     conn = get_db()
-    cars = conn.execute('''
-        SELECT id, vehicle_name
+    categories = [c for c, _ in ROSTER_CATEGORIES]
+    placeholders = ','.join('?' * len(categories))
+    cars = conn.execute(f'''
+        SELECT id, vehicle_name, category
         FROM key_fobs
-        WHERE is_active = 1 AND category = 'Squad Cars'
-    ''').fetchall()
-    rows = conn.execute('''
+        WHERE is_active = 1 AND category IN ({placeholders})
+    ''', categories).fetchall()
+    rows = conn.execute(f'''
         SELECT va.fob_id, va.shift, u.id AS user_id, u.first_name, u.last_name
         FROM vehicle_assignments va
         JOIN users u ON va.user_id = u.id
         JOIN key_fobs kf ON va.fob_id = kf.id
-        WHERE kf.is_active = 1 AND kf.category = 'Squad Cars'
+        WHERE kf.is_active = 1 AND kf.category IN ({placeholders})
         ORDER BY u.last_name, u.first_name
-    ''').fetchall()
+    ''', categories).fetchall()
     conn.close()
 
     # Display names: last name only, like the printed sheet. When two different
@@ -468,6 +477,13 @@ def get_roster_data():
             display[uids[0]] = last or first
             continue
         firsts = [people[u][0] for u in uids]
+        if len({f.lower() for f in firsts}) == 1:
+            # Same full name entered twice (duplicate user records): a first
+            # name can't tell them apart, so just show the last name.
+            for u in uids:
+                first, last = people[u]
+                display[u] = last or first
+            continue
         longest = max((len(f) for f in firsts), default=0)
         n = 1
         while n < longest and len({f[:n].lower() for f in firsts}) < len(firsts):
@@ -482,12 +498,16 @@ def get_roster_data():
             grid.setdefault(r['fob_id'], {}).setdefault(r['shift'], []).append(display[r['user_id']])
 
     def car_label(name):
-        # "Squad 38" / "Car #38" -> "38"; anything else is shown as entered.
-        m = re.match(r'^\s*(?:squad|car|unit)?\s*#?\s*(\d+)\s*$', name or '', re.IGNORECASE)
-        return m.group(1) if m else name
+        # Show just the vehicle number: "Squad 43" -> "43", "CSO 125" -> "125".
+        # If the name has more than one number ("K9 Tahoe 1"), use the last one.
+        # A name with no number at all is shown as entered.
+        numbers = re.findall(r'\d+', name or '')
+        return numbers[-1] if numbers else (name or '')
 
-    def natural_key(car):
-        return [int(t) if t.isdigit() else t.lower() for t in re.split('([0-9]+)', car['vehicle_name'])]
+    def sort_key(car):
+        # Number order within each section; names without a number go last, A-Z.
+        label = car_label(car['vehicle_name'])
+        return (0, int(label), car['vehicle_name'].lower()) if label.isdigit() else (1, 0, label.lower())
 
     chicago_tz = pytz.timezone('America/Chicago')
     return {
@@ -496,9 +516,11 @@ def get_roster_data():
             {
                 'id': car['id'],
                 'label': car_label(car['vehicle_name']),
+                'section': title,
                 'assignments': {s: grid.get(car['id'], {}).get(s, []) for s in ROSTER_SHIFTS},
             }
-            for car in sorted(cars, key=natural_key)
+            for category, title in ROSTER_CATEGORIES
+            for car in sorted((c for c in cars if c['category'] == category), key=sort_key)
         ],
         'updated_at': datetime.now(chicago_tz).isoformat(),
     }
@@ -511,7 +533,7 @@ def broadcast_roster():
 
 @app.route('/roster')
 def roster():
-    """Squad car assignment roster for the wall monitor by the keys (read-only)."""
+    """Squad car / specialized services assignment roster for the wall monitor by the keys (read-only)."""
     return render_template('roster.html', roster=get_roster_data())
 
 

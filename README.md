@@ -350,8 +350,10 @@ the cache headers there too.
 > issue, but it applies to any route moved behind Okta.
 
 > **`/roster` (squad car assignment wall display).** A read-only page listing
-> every active *Squad Cars* fob with its officer for each of the eight shifts,
-> built from the assignments entered on **Admin → Edit** for each car. It updates
+> every active *Squad Cars* and *Specialized Services Vehicles* fob (in two
+> sections) with its officer for each of the eight shifts, built from the
+> assignments entered on **Admin → Edit** for each vehicle. Admins can open it
+> from the **📋 Roster** link next to **Logout** on the admin dashboard. It updates
 > live over `/socket.io/` (`roster_update` event) whenever an assignment is added
 > or removed, or a car or officer is renamed, and loads its Socket.IO client from
 > `/static/js/` so it does not depend on a CDN. It is opened in a full-screen

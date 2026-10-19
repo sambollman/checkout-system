@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Squad Car Assignments</title>
+    <title>Vehicle Assignments</title>
     <style>
         :root {
             --bg: #0d1117;
@@ -72,10 +72,10 @@
             table-layout: fixed;
             font-size: 16px;           /* overwritten by fitTable() */
         }
-        col.car { width: 7.5%; }
+        col.car { width: 8%; }
         th, td {
             border: 1px solid var(--line);
-            padding: 0.12em 0.3em;
+            padding: 0.12em 0.15em;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -89,6 +89,17 @@
         thead th.blue { color: var(--blue); border-bottom: 3px solid var(--blue); }
 
         tbody tr:nth-child(even) { background: var(--row-alt); }
+        tr.section td {
+            background: var(--panel);
+            color: var(--muted);
+            font-weight: 700;
+            font-size: 0.85em;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            text-align: left;
+            padding-left: 0.6em;
+            border-top: 3px solid var(--line);
+        }
         td.car { font-weight: 800; font-size: 1.08em; font-variant-numeric: tabular-nums; background: var(--panel); }
         td.red  { background-image: linear-gradient(var(--red-tint), var(--red-tint)); }
         td.blue { background-image: linear-gradient(var(--blue-tint), var(--blue-tint)); }
@@ -114,7 +125,7 @@
 </head>
 <body>
     <header>
-        <h1>Squad Car Assignments</h1>
+        <h1>Vehicle Assignments</h1>
         <div class="clock">
             <div class="time" id="clock-time">--:--</div>
             <div class="date" id="clock-date"></div>
@@ -144,7 +155,7 @@
             const main = document.getElementById('main');
             const shifts = data.shifts;
             if (!data.cars.length) {
-                main.innerHTML = '<div class="empty">No active squad cars.</div>';
+                main.innerHTML = '<div class="empty">No active squad cars or specialized services vehicles.</div>';
                 previous = {};
                 updateFooter(data);
                 return;
@@ -159,7 +170,7 @@
             });
 
             let html = '<table><colgroup><col class="car">' + shifts.map(() => '<col>').join('') + '</colgroup><thead>';
-            html += '<tr class="group"><th rowspan="2">Squad</th>' +
+            html += '<tr class="group"><th class="car-head" rowspan="2">Car</th>' +
                 groups.map(g => `<th class="pair-start" colspan="${g.span}">${esc(SHORT[g.name] || g.name)}</th>`).join('') + '</tr>';
             html += '<tr class="sub">' + shifts.map((s, i) => {
                 const color = s.endsWith('Red') ? 'red' : 'blue';
@@ -167,8 +178,14 @@
             }).join('') + '</tr></thead><tbody>';
 
             const current = {};
+            let section = null;
             data.cars.forEach(car => {
-                html += `<tr><td class="car">${esc(car.label)}</td>`;
+                // Divider row when the category changes (not above the first one).
+                if (section !== null && car.section !== section) {
+                    html += `<tr class="section"><td colspan="${shifts.length + 1}">${esc(car.section)}</td></tr>`;
+                }
+                section = car.section;
+                html += `<tr><td class="car" title="${esc(car.label)}">${esc(car.label)}</td>`;
                 shifts.forEach((s, i) => {
                     const names = car.assignments[s] || [];
                     const text = names.join(' / ');
@@ -204,10 +221,20 @@
             }
             table.style.fontSize = lo + 'px';
 
-            table.querySelectorAll('tbody td:not(.car)').forEach(td => {
+            // Measure the text's real (sub-pixel) width; scrollWidth rounds and can
+            // report "fits" for text that is a fraction of a pixel too wide.
+            const range = document.createRange();
+            const overflows = td => {
+                if (!td.textContent) return false;
+                const cs = getComputedStyle(td);
+                const room = td.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+                range.selectNodeContents(td);
+                return range.getBoundingClientRect().width > room - 1;
+            };
+            table.querySelectorAll('tbody td, thead th').forEach(td => {
                 td.style.fontSize = '';
-                let size = 100;
-                while (td.scrollWidth > td.clientWidth && size > 60) {
+                let size = td.classList.contains('car') ? 108 : 100;
+                while (overflows(td) && size > 50) {
                     size -= 5;
                     td.style.fontSize = size + '%';
                 }
@@ -220,7 +247,11 @@
                 timeZone: TZ, weekday: 'short', month: 'short', day: 'numeric',
                 hour: '2-digit', minute: '2-digit', hour12: false
             });
-            document.getElementById('count').textContent = data.cars.length + ' squad cars';
+            const counts = {};
+            data.cars.forEach(c => { counts[c.section] = (counts[c.section] || 0) + 1; });
+            document.getElementById('count').textContent = Object.entries(counts)
+                .map(([section, n]) => `${n} ${section === 'Squad Cars' ? 'squad cars' : section.toLowerCase()}`)
+                .join(' · ');
         }
 
         function tick() {
